@@ -3,14 +3,19 @@
     import { goto } from "$app/navigation";
     import { onMount } from "svelte";
     import {
-        ChevronLeft,
-        ChevronRight,
-        List,
+        ChevronUp,
+        ChevronDown,
         Heart,
-        Loader2,
+        List,
         Info,
+        Home,
+        Loader2,
+        Play,
+        Pause,
+        Volume2,
+        VolumeX,
+        X,
     } from "lucide-svelte";
-    import VideoPlayer from "$lib/components/VideoPlayer.svelte";
     import {
         getDramaDetail,
         getAllEpisodes,
@@ -33,7 +38,16 @@
     let isLoading = $state(true);
     let isVideoLoading = $state(false);
     let showEpisodeList = $state(false);
+    let showInfo = $state(false);
     let error = $state<string | null>(null);
+
+    // Video player state
+    let videoElement: HTMLVideoElement;
+    let isPlaying = $state(false);
+    let isMuted = $state(false);
+    let progress = $state(0);
+    let currentTime = $state(0);
+    let duration = $state(0);
 
     let isFavorited = $derived(
         drama ? $favorites.some((f) => f.bookId === drama.bookId) : false,
@@ -62,7 +76,6 @@
             drama = dramaData;
             episodes = episodesData;
 
-            // Load initial episode
             if (episodeParam) {
                 currentEpisode = parseInt(episodeParam) || 1;
             }
@@ -82,13 +95,16 @@
             const options = await getStreamUrl(bookId, epNum);
             qualityOptions = options;
 
-            // Get default or 720p quality
             const defaultOption =
                 options.find((o) => o.isDefault) ||
                 options.find((o) => o.quality === 720) ||
                 options[0];
             if (defaultOption) {
                 videoSrc = defaultOption.videoUrl;
+                // Set video source directly for MP4
+                if (videoElement) {
+                    videoElement.src = defaultOption.videoUrl;
+                }
             } else {
                 error = "No video source available";
             }
@@ -119,17 +135,52 @@
         }
     }
 
-    function handleQualityChange(quality: number) {
-        const option = qualityOptions.find((o) => o.quality === quality);
-        if (option) {
-            videoSrc = option.videoUrl;
-        }
-    }
-
     function handleFavorite() {
         if (drama) {
             favorites.toggle(drama);
         }
+    }
+
+    function togglePlay() {
+        if (videoElement) {
+            if (videoElement.paused) {
+                videoElement.play();
+            } else {
+                videoElement.pause();
+            }
+        }
+    }
+
+    function toggleMute() {
+        if (videoElement) {
+            videoElement.muted = !videoElement.muted;
+            isMuted = videoElement.muted;
+        }
+    }
+
+    function handleTimeUpdate() {
+        if (videoElement) {
+            currentTime = videoElement.currentTime;
+            duration = videoElement.duration || 0;
+            progress = duration ? (currentTime / duration) * 100 : 0;
+        }
+    }
+
+    function handleSeek(e: MouseEvent) {
+        if (videoElement) {
+            const rect = (
+                e.currentTarget as HTMLElement
+            ).getBoundingClientRect();
+            const pos = (e.clientX - rect.left) / rect.width;
+            videoElement.currentTime = pos * duration;
+        }
+    }
+
+    function formatTime(seconds: number): string {
+        if (!seconds || isNaN(seconds)) return "0:00";
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, "0")}`;
     }
 </script>
 
@@ -141,15 +192,13 @@
     >
 </svelte:head>
 
-<div class="min-h-screen bg-brand-black">
+<div class="fixed inset-0 bg-black flex items-center justify-center">
     {#if isLoading}
-        <div class="flex items-center justify-center min-h-[60vh]">
-            <Loader2 class="w-10 h-10 text-brand-orange animate-spin" />
+        <div class="flex items-center justify-center">
+            <Loader2 class="w-12 h-12 text-brand-orange animate-spin" />
         </div>
     {:else if error && !drama}
-        <div
-            class="flex flex-col items-center justify-center min-h-[60vh] text-center px-4"
-        >
+        <div class="flex flex-col items-center justify-center text-center px-4">
             <h2 class="text-2xl font-bold mb-2">Error</h2>
             <p class="text-gray-400 mb-6">{error}</p>
             <a
@@ -160,179 +209,262 @@
             </a>
         </div>
     {:else if drama}
-        <div class="max-w-7xl mx-auto px-0 md:px-6 py-0 md:py-6">
-            <div class="flex flex-col lg:flex-row gap-6">
-                <!-- Main Content -->
-                <div class="flex-1">
-                    <!-- Video Player -->
-                    <div class="relative">
-                        {#if isVideoLoading}
-                            <div
-                                class="aspect-video bg-brand-dark flex items-center justify-center rounded-xl"
-                            >
-                                <Loader2
-                                    class="w-10 h-10 text-brand-orange animate-spin"
-                                />
-                            </div>
-                        {:else}
-                            <VideoPlayer
-                                src={videoSrc}
-                                {qualityOptions}
-                                onQualityChange={handleQualityChange}
-                                poster={fixUrl(drama.cover)}
-                            />
-                        {/if}
-                    </div>
+        <!-- TikTok-Style Player Container -->
+        <div class="relative w-full h-full max-w-lg mx-auto">
+            <!-- Video -->
+            <video
+                bind:this={videoElement}
+                class="w-full h-full object-contain bg-black"
+                poster={fixUrl(drama.cover)}
+                playsinline
+                onclick={togglePlay}
+                onplay={() => {
+                    isPlaying = true;
+                }}
+                onpause={() => {
+                    isPlaying = false;
+                }}
+                ontimeupdate={handleTimeUpdate}
+                onerror={() => {
+                    error = "Failed to load video";
+                }}
+            ></video>
 
-                    <!-- Episode Navigation (Mobile) -->
-                    <div
-                        class="flex items-center justify-between p-4 bg-brand-dark lg:hidden"
-                    >
-                        <button
-                            onclick={prevEpisode}
-                            disabled={currentEpisode <= 1}
-                            class="flex items-center gap-1 px-4 py-2 glass rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <ChevronLeft class="w-4 h-4" />
-                            Prev
-                        </button>
-
-                        <button
-                            onclick={() => (showEpisodeList = !showEpisodeList)}
-                            class="flex items-center gap-2 px-4 py-2 glass rounded-lg"
-                        >
-                            <List class="w-4 h-4" />
-                            Ep {currentEpisode}
-                        </button>
-
-                        <button
-                            onclick={nextEpisode}
-                            disabled={currentEpisode >= episodes.length}
-                            class="flex items-center gap-1 px-4 py-2 glass rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Next
-                            <ChevronRight class="w-4 h-4" />
-                        </button>
-                    </div>
-
-                    <!-- Drama Info -->
-                    <div class="p-4 md:p-0 md:mt-6">
-                        <div class="flex items-start gap-4">
-                            <img
-                                src={fixUrl(drama.cover)}
-                                alt={drama.bookName}
-                                class="w-16 h-24 object-cover rounded-lg hidden md:block"
-                            />
-                            <div class="flex-1">
-                                <div
-                                    class="flex items-start justify-between gap-4"
-                                >
-                                    <div>
-                                        <h1
-                                            class="text-xl md:text-2xl font-bold"
-                                        >
-                                            {drama.bookName}
-                                        </h1>
-                                        <p class="text-gray-400 text-sm">
-                                            Episode {currentEpisode} of {episodes.length}
-                                        </p>
-                                    </div>
-                                    <button
-                                        onclick={handleFavorite}
-                                        class="shrink-0 p-3 glass rounded-full hover:bg-white/20 transition-colors {isFavorited
-                                            ? 'text-red-500'
-                                            : 'text-white'}"
-                                        aria-label={isFavorited
-                                            ? "Remove from favorites"
-                                            : "Add to favorites"}
-                                    >
-                                        <Heart
-                                            class="w-5 h-5 {isFavorited
-                                                ? 'fill-current'
-                                                : ''}"
-                                        />
-                                    </button>
-                                </div>
-
-                                <a
-                                    href="/detail/{drama.bookId}"
-                                    class="inline-flex items-center gap-2 mt-4 text-sm text-brand-orange hover:underline"
-                                >
-                                    <Info class="w-4 h-4" />
-                                    Lihat Detail Drama
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Mobile Episode List -->
-                    {#if showEpisodeList}
-                        <div class="p-4 lg:hidden">
-                            <div class="glass rounded-xl p-4">
-                                <h3 class="font-semibold mb-3">
-                                    Pilih Episode
-                                </h3>
-                                <div
-                                    class="grid grid-cols-5 gap-2 max-h-60 overflow-y-auto"
-                                >
-                                    {#each episodes as ep, index}
-                                        <button
-                                            onclick={() =>
-                                                goToEpisode(
-                                                    ep.chapterIndex ||
-                                                        index + 1,
-                                                )}
-                                            class="p-3 rounded-lg text-sm font-medium transition-colors {currentEpisode ===
-                                            (ep.chapterIndex || index + 1)
-                                                ? 'bg-brand-orange'
-                                                : 'glass hover:bg-white/20'}"
-                                        >
-                                            {ep.chapterIndex || index + 1}
-                                        </button>
-                                    {/each}
-                                </div>
-                            </div>
-                        </div>
-                    {/if}
+            <!-- Loading Overlay -->
+            {#if isVideoLoading}
+                <div
+                    class="absolute inset-0 flex items-center justify-center bg-black/50"
+                >
+                    <Loader2 class="w-12 h-12 text-brand-orange animate-spin" />
                 </div>
+            {/if}
 
-                <!-- Episode List Sidebar (Desktop) -->
-                <div class="hidden lg:block w-80 shrink-0">
-                    <div class="glass rounded-xl overflow-hidden sticky top-20">
-                        <div class="p-4 border-b border-white/10">
-                            <h3 class="font-semibold">Daftar Episode</h3>
-                            <p class="text-sm text-gray-400">
-                                {episodes.length} episode
-                            </p>
-                        </div>
-                        <div class="max-h-[60vh] overflow-y-auto">
+            <!-- Play/Pause Center Overlay -->
+            {#if !isPlaying && !isVideoLoading}
+                <button
+                    onclick={togglePlay}
+                    class="absolute inset-0 flex items-center justify-center"
+                >
+                    <div
+                        class="w-20 h-20 rounded-full bg-brand-orange/80 flex items-center justify-center backdrop-blur-sm"
+                    >
+                        <Play class="w-10 h-10 text-white fill-white ml-1" />
+                    </div>
+                </button>
+            {/if}
+
+            <!-- Top Bar -->
+            <div
+                class="absolute top-0 left-0 right-0 flex items-center justify-between p-4 bg-gradient-to-b from-black/60 to-transparent"
+            >
+                <a href="/" class="p-2 glass rounded-full">
+                    <Home class="w-5 h-5" />
+                </a>
+                <div class="text-center flex-1 mx-4">
+                    <p class="text-sm font-semibold line-clamp-1">
+                        {drama.bookName}
+                    </p>
+                    <p class="text-xs text-gray-400">
+                        Episode {currentEpisode} / {episodes.length}
+                    </p>
+                </div>
+                <button onclick={toggleMute} class="p-2 glass rounded-full">
+                    {#if isMuted}
+                        <VolumeX class="w-5 h-5" />
+                    {:else}
+                        <Volume2 class="w-5 h-5" />
+                    {/if}
+                </button>
+            </div>
+
+            <!-- Right Side Action Buttons -->
+            <div
+                class="absolute right-4 bottom-32 flex flex-col items-center gap-5"
+            >
+                <!-- Previous Episode -->
+                <button
+                    onclick={prevEpisode}
+                    disabled={currentEpisode <= 1}
+                    class="flex flex-col items-center gap-1 disabled:opacity-30"
+                >
+                    <div
+                        class="w-12 h-12 rounded-full glass flex items-center justify-center"
+                    >
+                        <ChevronUp class="w-6 h-6" />
+                    </div>
+                    <span class="text-xs">Prev</span>
+                </button>
+
+                <!-- Episodes List -->
+                <button
+                    onclick={() => {
+                        showEpisodeList = !showEpisodeList;
+                        showInfo = false;
+                    }}
+                    class="flex flex-col items-center gap-1"
+                >
+                    <div
+                        class="w-12 h-12 rounded-full glass flex items-center justify-center {showEpisodeList
+                            ? 'bg-brand-orange'
+                            : ''}"
+                    >
+                        <List class="w-6 h-6" />
+                    </div>
+                    <span class="text-xs">{episodes.length} Ep</span>
+                </button>
+
+                <!-- Favorite -->
+                <button
+                    onclick={handleFavorite}
+                    class="flex flex-col items-center gap-1"
+                >
+                    <div
+                        class="w-12 h-12 rounded-full glass flex items-center justify-center {isFavorited
+                            ? 'bg-red-500'
+                            : ''}"
+                    >
+                        <Heart
+                            class="w-6 h-6 {isFavorited ? 'fill-white' : ''}"
+                        />
+                    </div>
+                    <span class="text-xs">{isFavorited ? "Saved" : "Save"}</span
+                    >
+                </button>
+
+                <!-- Info -->
+                <button
+                    onclick={() => {
+                        showInfo = !showInfo;
+                        showEpisodeList = false;
+                    }}
+                    class="flex flex-col items-center gap-1"
+                >
+                    <div
+                        class="w-12 h-12 rounded-full glass flex items-center justify-center {showInfo
+                            ? 'bg-brand-orange'
+                            : ''}"
+                    >
+                        <Info class="w-6 h-6" />
+                    </div>
+                    <span class="text-xs">Info</span>
+                </button>
+
+                <!-- Next Episode -->
+                <button
+                    onclick={nextEpisode}
+                    disabled={currentEpisode >= episodes.length}
+                    class="flex flex-col items-center gap-1 disabled:opacity-30"
+                >
+                    <div
+                        class="w-12 h-12 rounded-full glass flex items-center justify-center"
+                    >
+                        <ChevronDown class="w-6 h-6" />
+                    </div>
+                    <span class="text-xs">Next</span>
+                </button>
+            </div>
+
+            <!-- Bottom Progress Bar & Time -->
+            <div
+                class="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent"
+            >
+                <!-- Progress Bar -->
+                <div
+                    class="relative h-1 bg-white/30 rounded-full mb-3 cursor-pointer"
+                    onclick={handleSeek}
+                >
+                    <div
+                        class="absolute top-0 left-0 h-full bg-brand-orange rounded-full transition-all"
+                        style="width: {progress}%"
+                    ></div>
+                </div>
+                <div
+                    class="flex items-center justify-between text-xs text-gray-300"
+                >
+                    <span>{formatTime(currentTime)}</span>
+                    <span>{formatTime(duration)}</span>
+                </div>
+            </div>
+
+            <!-- Episode List Panel -->
+            {#if showEpisodeList}
+                <div
+                    class="absolute inset-0 bg-black/90 backdrop-blur-sm flex flex-col"
+                >
+                    <div
+                        class="flex items-center justify-between p-4 border-b border-white/10"
+                    >
+                        <h3 class="font-semibold">Daftar Episode</h3>
+                        <button
+                            onclick={() => (showEpisodeList = false)}
+                            class="p-2"
+                        >
+                            <X class="w-5 h-5" />
+                        </button>
+                    </div>
+                    <div class="flex-1 overflow-y-auto p-4">
+                        <div class="grid grid-cols-5 gap-2">
                             {#each episodes as ep, index}
                                 {@const epNum = ep.chapterIndex || index + 1}
                                 <button
                                     onclick={() => goToEpisode(epNum)}
-                                    class="w-full flex items-center gap-3 p-3 hover:bg-white/5 transition-colors border-b border-white/5 last:border-0 {currentEpisode ===
+                                    class="p-3 rounded-lg text-sm font-medium transition-colors {currentEpisode ===
                                     epNum
-                                        ? 'bg-brand-orange/20 border-l-2 border-l-brand-orange'
-                                        : ''}"
+                                        ? 'bg-brand-orange'
+                                        : 'glass hover:bg-white/20'}"
                                 >
-                                    <span
-                                        class="w-8 h-8 rounded-lg glass flex items-center justify-center text-sm font-medium {currentEpisode ===
-                                        epNum
-                                            ? 'bg-brand-orange'
-                                            : ''}"
-                                    >
-                                        {epNum}
-                                    </span>
-                                    <span class="text-sm truncate"
-                                        >{ep.chapterName ||
-                                            `Episode ${epNum}`}</span
-                                    >
+                                    {epNum}
                                 </button>
                             {/each}
                         </div>
                     </div>
                 </div>
-            </div>
+            {/if}
+
+            <!-- Info Panel -->
+            {#if showInfo}
+                <div
+                    class="absolute inset-0 bg-black/90 backdrop-blur-sm flex flex-col"
+                >
+                    <div
+                        class="flex items-center justify-between p-4 border-b border-white/10"
+                    >
+                        <h3 class="font-semibold">Detail Drama</h3>
+                        <button onclick={() => (showInfo = false)} class="p-2">
+                            <X class="w-5 h-5" />
+                        </button>
+                    </div>
+                    <div class="flex-1 overflow-y-auto p-4">
+                        <div class="flex gap-4 mb-4">
+                            <img
+                                src={fixUrl(drama.cover)}
+                                alt={drama.bookName}
+                                class="w-24 h-36 object-cover rounded-lg"
+                            />
+                            <div class="flex-1">
+                                <h2 class="text-lg font-bold mb-2">
+                                    {drama.bookName}
+                                </h2>
+                                <p class="text-sm text-gray-400 mb-1">
+                                    {drama.status} • {drama.year}
+                                </p>
+                                <p class="text-sm text-gray-400">
+                                    {episodes.length} Episodes
+                                </p>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-300 leading-relaxed">
+                            {drama.introduction || "No description available."}
+                        </p>
+                        <a
+                            href="/detail/{drama.bookId}"
+                            class="inline-block mt-4 px-4 py-2 bg-brand-orange rounded-lg text-sm font-medium"
+                        >
+                            Lihat Detail Lengkap
+                        </a>
+                    </div>
+                </div>
+            {/if}
         </div>
     {/if}
 </div>
