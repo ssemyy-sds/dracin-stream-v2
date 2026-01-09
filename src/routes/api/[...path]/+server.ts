@@ -31,6 +31,8 @@ export const GET: RequestHandler = async ({ url, params }) => {
         targetUrl = `${API_URLS.primary}/${path}${queryString ? '?' + queryString : ''}`;
     }
 
+    console.log('[API Proxy] provider:', provider, '| path:', path, '| targetUrl:', targetUrl);
+
     try {
         const response = await fetch(targetUrl, {
             headers: {
