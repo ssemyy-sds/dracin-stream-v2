@@ -10,11 +10,6 @@ export default async function handler(req, res) {
 
     const { path, provider } = req.query;
 
-    // Determine API URL based on provider
-    const baseUrl = provider === 'secondary'
-        ? 'https://api.gimita.id/api/search/dramabox'
-        : 'https://api.sansekai.my.id/api/dramabox';
-
     // Reconstruct path from array if needed
     const apiPath = Array.isArray(path) ? path.join('/') : path;
 
@@ -26,8 +21,21 @@ export default async function handler(req, res) {
         }
     });
 
-    const queryString = queryParams.toString();
-    const targetUrl = `${baseUrl}/${apiPath}${queryString ? '?' + queryString : ''}`;
+    let targetUrl;
+
+    if (provider === 'secondary') {
+        // Secondary API uses ?action= query parameter format
+        // Example: https://api.gimita.id/api/search/dramabox?action=home&page=1&size=10
+        queryParams.set('action', apiPath || '');
+        targetUrl = `https://api.gimita.id/api/search/dramabox?${queryParams.toString()}`;
+    } else {
+        // Primary API uses path-based routing
+        // Example: https://api.sansekai.my.id/api/dramabox/trending
+        const queryString = queryParams.toString();
+        targetUrl = `https://api.sansekai.my.id/api/dramabox/${apiPath}${queryString ? '?' + queryString : ''}`;
+    }
+
+    console.log('[API Proxy] provider:', provider, '| path:', apiPath, '| targetUrl:', targetUrl);
 
     try {
         const response = await fetch(targetUrl, {
