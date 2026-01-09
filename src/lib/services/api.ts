@@ -128,10 +128,21 @@ export async function getAllEpisodes(bookId: string): Promise<Array<Omit<Episode
 
 /**
  * Get video stream URL for an episode
+ * Since videos are embedded in allepisode response, we fetch that and extract
  */
-export async function getStreamUrl(bookId: string, episode: number): Promise<QualityOption[]> {
-    const data = await fetchApi<PlayResponse>(`play?bookId=${bookId}&episode=${episode}`);
-    return extractVideoUrls(data);
+export async function getStreamUrl(bookId: string, episodeNum: number): Promise<QualityOption[]> {
+    const data = await fetchApi<EpisodeResponse[]>(`allepisode?bookId=${bookId}`);
+
+    if (!Array.isArray(data) || data.length === 0) {
+        return [];
+    }
+
+    // Find episode by index (1-indexed from user, 0-indexed in data)
+    const episodeIndex = episodeNum - 1;
+    const episode = data[episodeIndex] || data[0];
+
+    // Extract video URLs from episode's cdnList
+    return extractVideoUrls(episode as unknown as PlayResponse);
 }
 
 /**

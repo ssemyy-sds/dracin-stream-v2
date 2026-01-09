@@ -82,6 +82,7 @@ export interface EpisodeResponse {
     title?: string;
     cover?: string;
     coverUrl?: string;
+    cdnList?: CdnItem[];
 }
 
 // Play response with CDN list
