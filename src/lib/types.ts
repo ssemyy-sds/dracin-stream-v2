@@ -94,6 +94,7 @@ export interface PlayResponse {
 
 export interface CdnItem {
     cdnType?: string;
+    cdnDomain?: string;
     videoPathList?: VideoPath[];
 }
 

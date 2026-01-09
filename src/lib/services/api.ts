@@ -45,46 +45,38 @@ function normalizeEpisode(data: EpisodeResponse, index: number): Omit<Episode, '
 }
 
 /**
- * Extract video URLs from play response
+ * Extract video URLs from episode data with cdnList
  */
-function extractVideoUrls(data: PlayResponse): QualityOption[] {
+function extractVideoUrls(data: EpisodeResponse): QualityOption[] {
     const options: QualityOption[] = [];
 
     // Try cdnList first
     if (data.cdnList && data.cdnList.length > 0) {
-        const cdn = data.cdnList[0];
-        if (cdn.videoPathList) {
-            cdn.videoPathList.forEach((path, idx) => {
-                const url = path.videoPath || path.path || path.url;
-                if (url) {
-                    options.push({
-                        quality: path.definition || path.quality || 720,
-                        videoUrl: fixUrl(url),
-                        isDefault: idx === 0
-                    });
-                }
-            });
+        for (const cdn of data.cdnList) {
+            const cdnDomain = cdn.cdnDomain;
+            if (cdn.videoPathList) {
+                cdn.videoPathList.forEach((path, idx) => {
+                    let url = path.videoPath || path.path || path.url;
+                    if (url) {
+                        // Construct full URL if we have cdnDomain
+                        if (cdnDomain && !url.startsWith('http')) {
+                            url = `https://${cdnDomain}${url.startsWith('/') ? '' : '/'}${url}`;
+                        }
+                        options.push({
+                            quality: path.definition || path.quality || 720,
+                            videoUrl: fixUrl(url),
+                            isDefault: idx === 0
+                        });
+                    }
+                });
+            }
+            // Only use first CDN with valid paths
+            if (options.length > 0) break;
         }
     }
 
-    // Fallback to direct URL
-    if (options.length === 0) {
-        const url = data.videoUrl || data.url;
-        if (url) {
-            options.push({
-                quality: 720,
-                videoUrl: fixUrl(url),
-                isDefault: true
-            });
-        }
-    }
-
-    // Sort by quality (prefer 720p as default)
-    return options.sort((a, b) => {
-        if (a.quality === 720) return -1;
-        if (b.quality === 720) return 1;
-        return a.quality - b.quality;
-    });
+    // Sort by quality (prefer highest quality as default)
+    return options.sort((a, b) => b.quality - a.quality);
 }
 
 /**
@@ -128,7 +120,7 @@ export async function getAllEpisodes(bookId: string): Promise<Array<Omit<Episode
 
 /**
  * Get video stream URL for an episode
- * Since videos are embedded in allepisode response, we fetch that and extract
+ * Videos are embedded in allepisode response
  */
 export async function getStreamUrl(bookId: string, episodeNum: number): Promise<QualityOption[]> {
     const data = await fetchApi<EpisodeResponse[]>(`allepisode?bookId=${bookId}`);
@@ -138,11 +130,11 @@ export async function getStreamUrl(bookId: string, episodeNum: number): Promise<
     }
 
     // Find episode by index (1-indexed from user, 0-indexed in data)
-    const episodeIndex = episodeNum - 1;
+    const episodeIndex = Math.max(0, episodeNum - 1);
     const episode = data[episodeIndex] || data[0];
 
     // Extract video URLs from episode's cdnList
-    return extractVideoUrls(episode as unknown as PlayResponse);
+    return extractVideoUrls(episode);
 }
 
 /**
@@ -187,12 +179,35 @@ export async function getForYou(): Promise<Drama[]> {
 
 /**
  * Get VIP content with pagination
+ * VIP response is wrapped in {columnVoList: [{bookInfoList: [...]}]}
  */
 export async function getVip(page = 1): Promise<Drama[]> {
-    const data = await fetchApi<DramaDetailResponse[]>(`vip?page=${page}`);
+    interface VipResponse {
+        columnVoList?: Array<{
+            bookInfoList?: DramaDetailResponse[];
+        }>;
+    }
 
-    if (!Array.isArray(data)) return [];
-    return data.map(normalizeDrama);
+    const response = await fetchApi<VipResponse | DramaDetailResponse[]>(`vip?page=${page}`);
+
+    // Handle wrapped response
+    if (response && typeof response === 'object' && 'columnVoList' in response) {
+        const vipData = response as VipResponse;
+        const allDramas: Drama[] = [];
+        vipData.columnVoList?.forEach(column => {
+            column.bookInfoList?.forEach(drama => {
+                allDramas.push(normalizeDrama(drama));
+            });
+        });
+        return allDramas;
+    }
+
+    // Direct array response
+    if (Array.isArray(response)) {
+        return response.map(normalizeDrama);
+    }
+
+    return [];
 }
 
 /**
