@@ -180,6 +180,7 @@ export async function getForYou(): Promise<Drama[]> {
 /**
  * Get VIP content with pagination
  * VIP response is wrapped in {columnVoList: [{bookInfoList: [...]}]}
+ * Falls back to secondary API if primary returns empty
  */
 export async function getVip(page = 1): Promise<Drama[]> {
     interface VipResponse {
@@ -188,6 +189,13 @@ export async function getVip(page = 1): Promise<Drama[]> {
         }>;
     }
 
+    interface SecondaryApiResponse {
+        data?: {
+            bookList?: DramaDetailResponse[];
+        };
+    }
+
+    // Try primary API first
     const response = await fetchApi<VipResponse | DramaDetailResponse[]>(`vip?page=${page}`);
 
     // Handle wrapped response
@@ -199,12 +207,27 @@ export async function getVip(page = 1): Promise<Drama[]> {
                 allDramas.push(normalizeDrama(drama));
             });
         });
-        return allDramas;
+        if (allDramas.length > 0) {
+            return allDramas;
+        }
     }
 
     // Direct array response
-    if (Array.isArray(response)) {
+    if (Array.isArray(response) && response.length > 0) {
         return response.map(normalizeDrama);
+    }
+
+    // Fallback to secondary API (api.gimita.id) via proxy
+    try {
+        const secondaryResponse = await fetch(`/api/action=vip?page=${page}&size=10&provider=secondary`);
+        if (secondaryResponse.ok) {
+            const data = await secondaryResponse.json() as SecondaryApiResponse;
+            if (data?.data?.bookList && Array.isArray(data.data.bookList)) {
+                return data.data.bookList.map(normalizeDrama);
+            }
+        }
+    } catch (err) {
+        console.error('Secondary VIP API failed:', err);
     }
 
     return [];
