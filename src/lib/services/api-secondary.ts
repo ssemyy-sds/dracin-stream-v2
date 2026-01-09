@@ -11,15 +11,19 @@ const API_BASE = '/api';
 
 /**
  * Secondary API drama response structure
+ * Note: Secondary API uses 'name' instead of 'bookName' for titles
  */
 interface SecondaryDramaResponse {
     bookId?: string;
     bookid?: string;
+    id?: string;
     bookName?: string;
     bookname?: string;
+    name?: string; // Secondary API uses 'name' for title
     cover?: string;
     coverWap?: string;
     introduction?: string;
+    description?: string; // Secondary API may use 'description'
     chapterCount?: number;
     latestChapter?: number;
     rating?: number;
@@ -29,7 +33,7 @@ interface SecondaryDramaResponse {
     cornerName?: string;
     cornerColor?: string;
     viewCount?: number;
-    playCount?: number;
+    playCount?: string | number; // Can be "5.3M" or number
     tags?: Array<{ tagName?: string; tagEnName?: string }>;
     tagNameList?: string[];
 }
@@ -53,20 +57,40 @@ function normalizeDrama(data: SecondaryDramaResponse): Drama {
         genres = data.tagNameList;
     }
 
+    // Parse playCount if it's a string like "5.3M"
+    let viewCount: number | undefined;
+    if (data.viewCount) {
+        viewCount = data.viewCount;
+    } else if (data.playCount) {
+        if (typeof data.playCount === 'number') {
+            viewCount = data.playCount;
+        } else if (typeof data.playCount === 'string') {
+            const match = data.playCount.match(/(\d+\.?\d*)(M|K)?/i);
+            if (match) {
+                let num = parseFloat(match[1]);
+                if (match[2]?.toUpperCase() === 'M') num *= 1000000;
+                if (match[2]?.toUpperCase() === 'K') num *= 1000;
+                viewCount = Math.round(num);
+            }
+        }
+    }
+
     return {
-        bookId: data.bookId || data.bookid || '',
-        bookName: data.bookName || data.bookname || 'Unknown',
+        bookId: data.bookId || data.bookid || data.id || '',
+        bookName: data.name || data.bookName || data.bookname || 'Unknown',
         cover: fixUrl(data.coverWap || data.cover || ''),
-        introduction: data.introduction || '',
+        introduction: data.introduction || data.description || '',
         rating: parseRating(data.rating || data.score),
         genres,
         status: data.finished === false || data.status === 'Ongoing' ? 'Ongoing' : 'Completed',
+        year: undefined,
         latestEpisode: data.latestChapter || data.chapterCount || 0,
         chapterCount: data.chapterCount,
-        viewCount: data.viewCount || data.playCount,
+        viewCount,
         cornerLabel: data.cornerName
     };
 }
+
 
 /**
  * Fetch from secondary API via proxy
