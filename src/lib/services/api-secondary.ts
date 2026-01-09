@@ -4,7 +4,7 @@
  */
 
 import type { Drama, Episode, QualityOption } from '$lib/types';
-import { fixUrl, parseRating, parseYear } from '$lib/utils/helpers';
+import { fixUrl, parseRating } from '$lib/utils/helpers';
 
 // Secondary API base URL (through Vercel proxy)
 const API_BASE = '/api';
@@ -61,7 +61,6 @@ function normalizeDrama(data: SecondaryDramaResponse): Drama {
         rating: parseRating(data.rating || data.score),
         genres,
         status: data.finished === false || data.status === 'Ongoing' ? 'Ongoing' : 'Completed',
-        year: undefined,
         latestEpisode: data.latestChapter || data.chapterCount || 0,
         chapterCount: data.chapterCount,
         viewCount: data.viewCount || data.playCount,
@@ -71,10 +70,12 @@ function normalizeDrama(data: SecondaryDramaResponse): Drama {
 
 /**
  * Fetch from secondary API via proxy
+ * The proxy will convert the path to action query param for secondary API
  */
 async function fetchSecondaryApi<T>(action: string, params: Record<string, string | number> = {}): Promise<T | null> {
+    // Build query params - only provider and additional params
+    // The proxy will add action= from the path
     const queryParams = new URLSearchParams({
-        action,
         provider: 'secondary',
         ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)]))
     });
@@ -102,6 +103,7 @@ async function fetchSecondaryApi<T>(action: string, params: Record<string, strin
         return null;
     }
 }
+
 
 // ============= PUBLIC API FUNCTIONS =============
 
