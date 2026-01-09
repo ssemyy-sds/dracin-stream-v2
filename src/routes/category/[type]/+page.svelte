@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from '$app/stores';
-  import { onMount, effect } from 'svelte';
+  import { onMount } from 'svelte';
   import { Loader2, TrendingUp, Star, Clock, Crown, Languages } from 'lucide-svelte';
   import DramaCard from '$lib/components/DramaCard.svelte';
   import { getDramasByCategory } from '$lib/services/api';
