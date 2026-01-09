@@ -12,8 +12,8 @@ export default async function handler(req, res) {
 
     // Determine API URL based on provider
     const baseUrl = provider === 'secondary'
-        ? 'https://api.gimita.id/api'
-        : 'https://api.sansekai.my.id';
+        ? 'https://api.gimita.id/api/search/dramabox'
+        : 'https://api.sansekai.my.id/api/dramabox';
 
     // Reconstruct path from array if needed
     const apiPath = Array.isArray(path) ? path.join('/') : path;
