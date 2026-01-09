@@ -50,6 +50,7 @@ export interface DramaDetailResponse {
     bookName?: string;
     bookname?: string;
     cover?: string;
+    coverWap?: string;
     coverUrl?: string;
     introduction?: string;
     description?: string;

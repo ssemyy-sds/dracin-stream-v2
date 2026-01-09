@@ -19,7 +19,7 @@ function normalizeDrama(data: DramaDetailResponse): Drama {
     return {
         bookId: data.bookId || data.bookid || '',
         bookName: data.bookName || data.bookname || 'Unknown',
-        cover: fixUrl(data.cover || data.coverUrl),
+        cover: fixUrl(data.coverWap || data.cover || data.coverUrl),
         introduction: data.introduction || data.description || '',
         rating: parseRating(data.rating || data.score),
         genres: data.genres || data.tags || [],
