@@ -8,10 +8,7 @@ const API_URLS = {
 export const GET: RequestHandler = async ({ url, params }) => {
     const path = params.path;
     const provider = url.searchParams.get('provider') || 'primary';
-    
-    // Determine base URL
-    const baseUrl = provider === 'secondary' ? API_URLS.secondary : API_URLS.primary;
-    
+
     // Build query string, excluding provider
     const queryParams = new URLSearchParams();
     url.searchParams.forEach((value, key) => {
@@ -19,10 +16,21 @@ export const GET: RequestHandler = async ({ url, params }) => {
             queryParams.set(key, value);
         }
     });
-    
-    const queryString = queryParams.toString();
-    const targetUrl = `${baseUrl}/${path}${queryString ? '?' + queryString : ''}`;
-    
+
+    let targetUrl: string;
+
+    if (provider === 'secondary') {
+        // Secondary API uses ?action= query parameter format
+        // Example: https://api.gimita.id/api/search/dramabox?action=home&page=1&size=10
+        queryParams.set('action', path || '');
+        targetUrl = `${API_URLS.secondary}?${queryParams.toString()}`;
+    } else {
+        // Primary API uses path-based routing
+        // Example: https://api.sansekai.my.id/api/dramabox/trending
+        const queryString = queryParams.toString();
+        targetUrl = `${API_URLS.primary}/${path}${queryString ? '?' + queryString : ''}`;
+    }
+
     try {
         const response = await fetch(targetUrl, {
             headers: {
@@ -30,9 +38,9 @@ export const GET: RequestHandler = async ({ url, params }) => {
                 'User-Agent': 'Dracin-Stream/2.0'
             }
         });
-        
+
         const data = await response.json();
-        
+
         return new Response(JSON.stringify(data), {
             status: response.status,
             headers: {
