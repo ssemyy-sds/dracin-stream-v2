@@ -39,6 +39,8 @@
     let isVideoLoading = $state(false);
     let showEpisodeList = $state(false);
     let showInfo = $state(false);
+    let showQualityMenu = $state(false);
+    let currentQuality = $state(720);
     let error = $state<string | null>(null);
 
     // Video player state
@@ -101,6 +103,7 @@
                 options[0];
             if (defaultOption) {
                 videoSrc = defaultOption.videoUrl;
+                currentQuality = defaultOption.quality;
                 // Set video source directly for MP4
                 if (videoElement) {
                     videoElement.src = defaultOption.videoUrl;
@@ -138,6 +141,20 @@
     function handleFavorite() {
         if (drama) {
             favorites.toggle(drama);
+        }
+    }
+
+    function selectQuality(quality: number) {
+        const option = qualityOptions.find((o) => o.quality === quality);
+        if (option && videoElement) {
+            const currentTimeSaved = videoElement.currentTime;
+            videoElement.src = option.videoUrl;
+            videoElement.currentTime = currentTimeSaved;
+            currentQuality = quality;
+            showQualityMenu = false;
+            if (isPlaying) {
+                videoElement.play();
+            }
         }
     }
 
@@ -300,6 +317,7 @@
                     onclick={() => {
                         showEpisodeList = !showEpisodeList;
                         showInfo = false;
+                        showQualityMenu = false;
                     }}
                     class="flex flex-col items-center gap-1"
                 >
@@ -336,6 +354,7 @@
                     onclick={() => {
                         showInfo = !showInfo;
                         showEpisodeList = false;
+                        showQualityMenu = false;
                     }}
                     class="flex flex-col items-center gap-1"
                 >
@@ -348,6 +367,29 @@
                     </div>
                     <span class="text-xs">Info</span>
                 </button>
+
+                <!-- Quality Selector -->
+                {#if qualityOptions.length > 1}
+                    <button
+                        onclick={() => {
+                            showQualityMenu = !showQualityMenu;
+                            showInfo = false;
+                            showEpisodeList = false;
+                        }}
+                        class="flex flex-col items-center gap-1"
+                    >
+                        <div
+                            class="w-12 h-12 rounded-full glass flex items-center justify-center {showQualityMenu
+                                ? 'bg-brand-orange'
+                                : ''}"
+                        >
+                            <span class="text-xs font-bold"
+                                >{currentQuality}p</span
+                            >
+                        </div>
+                        <span class="text-xs">Quality</span>
+                    </button>
+                {/if}
 
                 <!-- Next Episode -->
                 <button
@@ -462,6 +504,44 @@
                         >
                             Lihat Detail Lengkap
                         </a>
+                    </div>
+                </div>
+            {/if}
+
+            <!-- Quality Selection Panel -->
+            {#if showQualityMenu}
+                <div
+                    class="absolute inset-0 bg-black/90 backdrop-blur-sm flex flex-col"
+                >
+                    <div
+                        class="flex items-center justify-between p-4 border-b border-white/10"
+                    >
+                        <h3 class="font-semibold">Pilih Kualitas Video</h3>
+                        <button
+                            onclick={() => (showQualityMenu = false)}
+                            class="p-2"
+                        >
+                            <X class="w-5 h-5" />
+                        </button>
+                    </div>
+                    <div
+                        class="flex-1 flex flex-col items-center justify-center p-4 gap-3"
+                    >
+                        {#each qualityOptions as option}
+                            <button
+                                onclick={() => selectQuality(option.quality)}
+                                class="w-full max-w-xs px-6 py-4 rounded-xl text-center font-semibold transition-colors {currentQuality ===
+                                option.quality
+                                    ? 'bg-brand-orange'
+                                    : 'glass hover:bg-white/20'}"
+                            >
+                                {option.quality}p {option.quality >= 1080
+                                    ? "(HD)"
+                                    : option.quality >= 720
+                                      ? "(SD)"
+                                      : ""}
+                            </button>
+                        {/each}
                     </div>
                 </div>
             {/if}
