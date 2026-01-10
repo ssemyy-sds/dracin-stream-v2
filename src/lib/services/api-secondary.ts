@@ -153,11 +153,11 @@ export async function getRecommend(page = 1, size = 20): Promise<Drama[]> {
 
 /**
  * Get VIP content from secondary API
- * VIP response has nested structure: { data: { columnVoList: [{ records: [...dramas] }] } }
+ * VIP response has nested structure: { data: { data: { columnVoList: [{ bookList: [...dramas] }] } } }
  */
 export async function getVip(page = 1, size = 20): Promise<Drama[]> {
     interface VipColumn {
-        records?: SecondaryDramaResponse[];
+        bookList?: SecondaryDramaResponse[];
         title?: string;
     }
     interface VipInnerData {
@@ -176,15 +176,15 @@ export async function getVip(page = 1, size = 20): Promise<Drama[]> {
     // VIP response has extra nesting: data.data.columnVoList
     const vipData = data.data || data;
 
-    // Try columnVoList format: columnVoList[0].records
+    // Try columnVoList format: columnVoList[0].bookList
     if (vipData.columnVoList && Array.isArray(vipData.columnVoList) && vipData.columnVoList.length > 0) {
         const firstColumn = vipData.columnVoList[0];
-        if (firstColumn.records && Array.isArray(firstColumn.records)) {
-            return firstColumn.records.map(normalizeDrama);
+        if (firstColumn.bookList && Array.isArray(firstColumn.bookList)) {
+            return firstColumn.bookList.map(normalizeDrama);
         }
     }
 
-    // Fallback to legacy format: bookList
+    // Fallback to direct bookList
     if (data.bookList && Array.isArray(data.bookList)) {
         return data.bookList.map(normalizeDrama);
     }
