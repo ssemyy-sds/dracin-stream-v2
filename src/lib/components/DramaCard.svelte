@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Heart, Star, Play } from "lucide-svelte";
+  import { Heart, Star, Play, Eye } from "lucide-svelte";
   import type { Drama } from "$lib/types";
   import { favorites } from "$lib/stores/favorites";
   import { fixUrl, formatViewCount, truncateText } from "$lib/utils/helpers";
@@ -63,15 +63,6 @@
       </button>
     {/if}
 
-    <!-- Play Count Badge (upper right, below favorite) -->
-    {#if drama.viewCount}
-      <div
-        class="absolute top-10 right-2 px-2 py-1 rounded-md glass text-xs font-medium"
-      >
-        {formatViewCount(drama.viewCount)}
-      </div>
-    {/if}
-
     <!-- Play Button Overlay -->
     <div
       class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
@@ -83,7 +74,17 @@
       </div>
     </div>
 
-    <!-- Episode Count -->
+    <!-- Play Count Badge (bottom left, with eye icon, blue color) -->
+    {#if drama.viewCount}
+      <div
+        class="absolute bottom-2 left-2 px-2 py-1 rounded-md bg-blue-600/90 backdrop-blur-sm text-xs font-medium flex items-center gap-1"
+      >
+        <Eye class="w-3 h-3" />
+        {formatViewCount(drama.viewCount)}
+      </div>
+    {/if}
+
+    <!-- Episode Count (bottom right) -->
     {#if drama.latestEpisode}
       <div
         class="absolute bottom-2 right-2 px-2 py-1 rounded-md glass text-xs font-medium"
