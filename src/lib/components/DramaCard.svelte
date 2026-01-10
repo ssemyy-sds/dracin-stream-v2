@@ -40,6 +40,15 @@
       </div>
     {/if}
 
+    <!-- Episode Count (top right) -->
+    {#if drama.latestEpisode}
+      <div
+        class="absolute top-2 right-2 px-2 py-1 rounded-md glass text-xs font-medium"
+      >
+        Ep {drama.latestEpisode}
+      </div>
+    {/if}
+
     <!-- Play Button Overlay -->
     <div
       class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
@@ -51,22 +60,13 @@
       </div>
     </div>
 
-    <!-- Play Count Badge (bottom left, with eye icon, blue color) -->
+    <!-- Play Count Badge (bottom right, with eye icon, blue color) -->
     {#if drama.viewCount}
       <div
-        class="absolute bottom-2 left-2 px-2 py-1 rounded-md bg-blue-600/90 backdrop-blur-sm text-xs font-medium flex items-center gap-1"
+        class="absolute bottom-2 right-2 px-2 py-1 rounded-md bg-blue-600/90 backdrop-blur-sm text-xs font-medium flex items-center gap-1"
       >
         <Eye class="w-3 h-3" />
         {formatViewCount(drama.viewCount)}
-      </div>
-    {/if}
-
-    <!-- Episode Count (bottom right) -->
-    {#if drama.latestEpisode}
-      <div
-        class="absolute bottom-2 right-2 px-2 py-1 rounded-md glass text-xs font-medium"
-      >
-        Ep {drama.latestEpisode}
       </div>
     {/if}
   </div>
