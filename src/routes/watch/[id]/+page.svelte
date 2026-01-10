@@ -40,7 +40,7 @@
     let showEpisodeList = $state(false);
     let showInfo = $state(false);
     let showQualityMenu = $state(false);
-    let currentQuality = $state(720);
+    let currentQuality = $state(540);
     let error = $state<string | null>(null);
 
     // Video player state
@@ -98,6 +98,7 @@
             qualityOptions = options;
 
             const defaultOption =
+                options.find((o) => o.quality === 540) ||
                 options.find((o) => o.isDefault) ||
                 options.find((o) => o.quality === 720) ||
                 options[0];
@@ -440,7 +441,7 @@
             <!-- Episode List Panel -->
             {#if showEpisodeList}
                 <div
-                    class="absolute inset-0 bg-black/90 backdrop-blur-sm flex flex-col"
+                    class="absolute inset-0 pt-16 bg-black/90 backdrop-blur-sm flex flex-col"
                 >
                     <div
                         class="flex items-center justify-between p-4 border-b border-white/10"
@@ -475,7 +476,7 @@
             <!-- Info Panel -->
             {#if showInfo}
                 <div
-                    class="absolute inset-0 bg-black/90 backdrop-blur-sm flex flex-col"
+                    class="absolute inset-0 pt-16 bg-black/90 backdrop-blur-sm flex flex-col"
                 >
                     <div
                         class="flex items-center justify-between p-4 border-b border-white/10"
@@ -520,7 +521,7 @@
             <!-- Quality Selection Panel -->
             {#if showQualityMenu}
                 <div
-                    class="absolute inset-0 bg-black/90 backdrop-blur-sm flex flex-col"
+                    class="absolute inset-0 pt-16 bg-black/90 backdrop-blur-sm flex flex-col"
                 >
                     <div
                         class="flex items-center justify-between p-4 border-b border-white/10"
