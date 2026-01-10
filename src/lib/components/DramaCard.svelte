@@ -1,24 +1,14 @@
 <script lang="ts">
-  import { Heart, Star, Play, Eye } from "lucide-svelte";
+  import { Star, Play, Eye } from "lucide-svelte";
   import type { Drama } from "$lib/types";
-  import { favorites } from "$lib/stores/favorites";
-  import { fixUrl, formatViewCount, truncateText } from "$lib/utils/helpers";
+  import { fixUrl, formatViewCount } from "$lib/utils/helpers";
 
   interface Props {
     drama: Drama;
-    showFavorite?: boolean;
     compact?: boolean;
   }
 
-  let { drama, showFavorite = true, compact = false }: Props = $props();
-
-  let isFavorited = $derived($favorites.some((f) => f.bookId === drama.bookId));
-
-  function handleFavoriteClick(e: MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    favorites.toggle(drama);
-  }
+  let { drama, compact = false }: Props = $props();
 </script>
 
 <a
@@ -48,19 +38,6 @@
           {drama.cornerLabel}
         </span>
       </div>
-    {/if}
-
-    <!-- Favorite Button -->
-    {#if showFavorite}
-      <button
-        onclick={handleFavoriteClick}
-        class="absolute top-2 right-2 p-2 rounded-full glass opacity-0 group-hover:opacity-100 transition-all duration-300 hover:scale-110 {isFavorited
-          ? 'text-red-500'
-          : 'text-white'}"
-        aria-label={isFavorited ? "Remove from favorites" : "Add to favorites"}
-      >
-        <Heart class="w-4 h-4 {isFavorited ? 'fill-current' : ''}" />
-      </button>
     {/if}
 
     <!-- Play Button Overlay -->
