@@ -49,6 +49,9 @@
     // Controls visibility - show on tap, hide during playback
     let showControls = $state(true);
     let controlsTimeout: ReturnType<typeof setTimeout>;
+    
+    // Track if we need to load video once element is ready
+    let pendingVideoSrc = $state<string | null>(null);
 
     let isFavorited = $derived(
         drama ? $favorites.some((f) => f.bookId === drama.bookId) : false,
@@ -62,6 +65,20 @@
 
     onMount(async () => {
         await loadDramaData();
+    });
+    
+    // Watch for videoElement to be bound and load pending video
+    $effect(() => {
+        if (videoElement && pendingVideoSrc) {
+            videoElement.src = pendingVideoSrc;
+            videoElement.load();
+            videoElement.onloadeddata = () => {
+                videoElement.play().catch(() => {
+                    console.log("Autoplay blocked");
+                });
+            };
+            pendingVideoSrc = null;
+        }
     });
 
     async function loadDramaData() {
@@ -104,16 +121,19 @@
             if (defaultOption) {
                 videoSrc = defaultOption.videoUrl;
                 currentQuality = defaultOption.quality;
-                // Set video source and autoplay
+                
+                // If videoElement is bound, load directly; otherwise set pending
                 if (videoElement) {
                     videoElement.src = defaultOption.videoUrl;
                     videoElement.load();
-                    // Try to autoplay after video is ready
                     videoElement.onloadeddata = () => {
                         videoElement.play().catch(() => {
                             console.log("Autoplay blocked");
                         });
                     };
+                } else {
+                    // Video element not ready yet, store for later
+                    pendingVideoSrc = defaultOption.videoUrl;
                 }
             } else {
                 error = "No video source available";
@@ -176,20 +196,15 @@
     }
 
     function handleVideoTap() {
-        // Toggle controls visibility on tap
-        if (isPlaying) {
-            showControls = !showControls;
-            // Auto-hide controls after 3 seconds
-            if (showControls) {
-                clearTimeout(controlsTimeout);
-                controlsTimeout = setTimeout(() => {
-                    if (isPlaying) showControls = false;
-                }, 3000);
-            }
-        } else {
-            // If paused, tap to play
-            togglePlay();
-        }
+        // Always toggle play/pause on tap
+        togglePlay();
+        
+        // Also show controls temporarily
+        showControls = true;
+        clearTimeout(controlsTimeout);
+        controlsTimeout = setTimeout(() => {
+            if (isPlaying) showControls = false;
+        }, 3000);
     }
 
     function handleTimeUpdate() {
