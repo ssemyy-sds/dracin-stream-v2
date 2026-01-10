@@ -63,6 +63,15 @@
       </button>
     {/if}
 
+    <!-- Play Count Badge (upper right, below favorite) -->
+    {#if drama.viewCount}
+      <div
+        class="absolute top-10 right-2 px-2 py-1 rounded-md glass text-xs font-medium"
+      >
+        {formatViewCount(drama.viewCount)}
+      </div>
+    {/if}
+
     <!-- Play Button Overlay -->
     <div
       class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
@@ -103,18 +112,12 @@
         {#if drama.year}
           <span>• {drama.year}</span>
         {/if}
-        {#if drama.viewCount}
-          <span>• {formatViewCount(drama.viewCount)} views</span>
-        {/if}
       </div>
     {:else}
       <div class="flex items-center gap-1 text-xs text-gray-400">
         {#if drama.rating}
           <Star class="w-3 h-3 text-yellow-500 fill-yellow-500" />
           <span>{drama.rating.toFixed(1)}</span>
-        {/if}
-        {#if drama.viewCount}
-          <span>• {formatViewCount(drama.viewCount)}</span>
         {/if}
       </div>
     {/if}
