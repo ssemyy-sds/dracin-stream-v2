@@ -113,6 +113,9 @@
           <Star class="w-3 h-3 text-yellow-500 fill-yellow-500" />
           <span>{drama.rating.toFixed(1)}</span>
         {/if}
+        {#if drama.viewCount}
+          <span>• {formatViewCount(drama.viewCount)}</span>
+        {/if}
       </div>
     {/if}
   </div>
