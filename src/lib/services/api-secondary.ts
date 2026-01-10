@@ -153,16 +153,44 @@ export async function getRecommend(page = 1, size = 20): Promise<Drama[]> {
 
 /**
  * Get VIP content from secondary API
+ * VIP response has nested structure: { data: { columnVoList: [{ records: [...dramas] }] } }
  */
 export async function getVip(page = 1, size = 20): Promise<Drama[]> {
+    interface VipColumn {
+        records?: SecondaryDramaResponse[];
+        title?: string;
+    }
+    interface VipInnerData {
+        columnVoList?: VipColumn[];
+    }
     interface VipData {
+        data?: VipInnerData;
+        columnVoList?: VipColumn[];
         bookList?: SecondaryDramaResponse[];
     }
 
     const data = await fetchSecondaryApi<VipData>('vip', { page, size });
 
-    if (!data || !data.bookList || !Array.isArray(data.bookList)) return [];
-    return data.bookList.map(normalizeDrama);
+    if (!data) return [];
+
+    // VIP response has extra nesting: data.data.columnVoList
+    const vipData = data.data || data;
+
+    // Try columnVoList format: columnVoList[0].records
+    if (vipData.columnVoList && Array.isArray(vipData.columnVoList) && vipData.columnVoList.length > 0) {
+        const firstColumn = vipData.columnVoList[0];
+        if (firstColumn.records && Array.isArray(firstColumn.records)) {
+            return firstColumn.records.map(normalizeDrama);
+        }
+    }
+
+    // Fallback to legacy format: bookList
+    if (data.bookList && Array.isArray(data.bookList)) {
+        return data.bookList.map(normalizeDrama);
+    }
+
+    console.log('VIP data structure not recognized:', Object.keys(data));
+    return [];
 }
 
 /**
