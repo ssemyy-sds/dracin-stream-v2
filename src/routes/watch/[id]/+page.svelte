@@ -104,9 +104,19 @@
             if (defaultOption) {
                 videoSrc = defaultOption.videoUrl;
                 currentQuality = defaultOption.quality;
-                // Set video source directly for MP4
+                // Set video source and autoplay
                 if (videoElement) {
                     videoElement.src = defaultOption.videoUrl;
+                    videoElement.load();
+                    // Try to autoplay after video is ready
+                    videoElement.onloadeddata = () => {
+                        videoElement.play().catch(() => {
+                            // Autoplay blocked by browser, show play button
+                            console.log(
+                                "Autoplay blocked, user needs to click play",
+                            );
+                        });
+                    };
                 }
             } else {
                 error = "No video source available";
@@ -270,9 +280,9 @@
                 </button>
             {/if}
 
-            <!-- Top Bar -->
+            <!-- Top Bar (pushed below navbar) -->
             <div
-                class="absolute top-0 left-0 right-0 flex items-center justify-between p-4 bg-gradient-to-b from-black/60 to-transparent"
+                class="absolute top-16 left-0 right-0 flex items-center justify-between p-4 bg-gradient-to-b from-black/60 to-transparent z-10"
             >
                 <a href="/" class="p-2 glass rounded-full">
                     <Home class="w-5 h-5" />
@@ -317,7 +327,6 @@
                     onclick={() => {
                         showEpisodeList = !showEpisodeList;
                         showInfo = false;
-                        showQualityMenu = false;
                     }}
                     class="flex flex-col items-center gap-1"
                 >
@@ -446,8 +455,8 @@
                     </div>
                     <div class="flex-1 overflow-y-auto p-4">
                         <div class="grid grid-cols-5 gap-2">
-                            {#each episodes as ep, index}
-                                {@const epNum = ep.chapterIndex || index + 1}
+                            {#each episodes as _, index}
+                                {@const epNum = index + 1}
                                 <button
                                     onclick={() => goToEpisode(epNum)}
                                     class="p-3 rounded-lg text-sm font-medium transition-colors {currentEpisode ===
