@@ -8,12 +8,8 @@
         Heart,
         List,
         Info,
-        Home,
         Loader2,
         Play,
-        Pause,
-        Volume2,
-        VolumeX,
         X,
     } from "lucide-svelte";
     import {
@@ -46,10 +42,13 @@
     // Video player state
     let videoElement: HTMLVideoElement;
     let isPlaying = $state(false);
-    let isMuted = $state(false);
     let progress = $state(0);
     let currentTime = $state(0);
     let duration = $state(0);
+    
+    // Controls visibility - show on tap, hide during playback
+    let showControls = $state(true);
+    let controlsTimeout: ReturnType<typeof setTimeout>;
 
     let isFavorited = $derived(
         drama ? $favorites.some((f) => f.bookId === drama.bookId) : false,
@@ -112,10 +111,7 @@
                     // Try to autoplay after video is ready
                     videoElement.onloadeddata = () => {
                         videoElement.play().catch(() => {
-                            // Autoplay blocked by browser, show play button
-                            console.log(
-                                "Autoplay blocked, user needs to click play",
-                            );
+                            console.log("Autoplay blocked");
                         });
                     };
                 }
@@ -179,10 +175,20 @@
         }
     }
 
-    function toggleMute() {
-        if (videoElement) {
-            videoElement.muted = !videoElement.muted;
-            isMuted = videoElement.muted;
+    function handleVideoTap() {
+        // Toggle controls visibility on tap
+        if (isPlaying) {
+            showControls = !showControls;
+            // Auto-hide controls after 3 seconds
+            if (showControls) {
+                clearTimeout(controlsTimeout);
+                controlsTimeout = setTimeout(() => {
+                    if (isPlaying) showControls = false;
+                }, 3000);
+            }
+        } else {
+            // If paused, tap to play
+            togglePlay();
         }
     }
 
@@ -209,6 +215,18 @@
         const mins = Math.floor(seconds / 60);
         const secs = Math.floor(seconds % 60);
         return `${mins}:${secs.toString().padStart(2, "0")}`;
+    }
+    
+    function handlePlay() {
+        isPlaying = true;
+        showControls = false; // Hide controls when playing
+        clearTimeout(controlsTimeout);
+    }
+    
+    function handlePause() {
+        isPlaying = false;
+        showControls = true; // Show controls when paused
+        clearTimeout(controlsTimeout);
     }
 </script>
 
@@ -237,21 +255,17 @@
             </a>
         </div>
     {:else if drama}
-        <!-- TikTok-Style Player Container -->
-        <div class="relative w-full h-full max-w-lg mx-auto">
+        <!-- Fullscreen Player Container -->
+        <div class="relative w-full h-full">
             <!-- Video -->
             <video
                 bind:this={videoElement}
                 class="w-full h-full object-contain bg-black"
                 poster={fixUrl(drama.cover)}
                 playsinline
-                onclick={togglePlay}
-                onplay={() => {
-                    isPlaying = true;
-                }}
-                onpause={() => {
-                    isPlaying = false;
-                }}
+                onclick={handleVideoTap}
+                onplay={handlePlay}
+                onpause={handlePause}
                 ontimeupdate={handleTimeUpdate}
                 onerror={() => {
                     error = "Failed to load video";
@@ -267,7 +281,7 @@
                 </div>
             {/if}
 
-            <!-- Play/Pause Center Overlay -->
+            <!-- Play Button Center (only when paused or controls visible) -->
             {#if !isPlaying && !isVideoLoading}
                 <button
                     onclick={togglePlay}
@@ -281,33 +295,25 @@
                 </button>
             {/if}
 
-            <!-- Top Bar (pushed below navbar) -->
-            <div
-                class="absolute top-16 left-0 right-0 flex items-center justify-between p-4 bg-gradient-to-b from-black/60 to-transparent z-10"
-            >
-                <a href="/" class="p-2 glass rounded-full">
-                    <Home class="w-5 h-5" />
-                </a>
-                <div class="text-center flex-1 mx-4">
-                    <p class="text-sm font-semibold line-clamp-1">
-                        {drama.bookName}
-                    </p>
-                    <p class="text-xs text-gray-400">
-                        Episode {currentEpisode} / {episodes.length}
-                    </p>
+            <!-- Top Bar - Title (only shows on tap or when paused) -->
+            {#if showControls || !isPlaying}
+                <div
+                    class="absolute top-0 left-0 right-0 flex items-center justify-center p-4 pt-20 bg-gradient-to-b from-black/80 to-transparent z-10 transition-opacity duration-300"
+                >
+                    <div class="text-center">
+                        <p class="text-sm font-semibold line-clamp-1">
+                            {drama.bookName}
+                        </p>
+                        <p class="text-xs text-gray-400">
+                            Episode {currentEpisode} / {episodes.length}
+                        </p>
+                    </div>
                 </div>
-                <button onclick={toggleMute} class="p-2 glass rounded-full">
-                    {#if isMuted}
-                        <VolumeX class="w-5 h-5" />
-                    {:else}
-                        <Volume2 class="w-5 h-5" />
-                    {/if}
-                </button>
-            </div>
+            {/if}
 
             <!-- Right Side Action Buttons -->
             <div
-                class="absolute right-4 bottom-32 flex flex-col items-center gap-5"
+                class="absolute right-4 bottom-32 flex flex-col items-center gap-5 z-20"
             >
                 <!-- Previous Episode -->
                 <button
@@ -328,6 +334,7 @@
                     onclick={() => {
                         showEpisodeList = !showEpisodeList;
                         showInfo = false;
+                        showQualityMenu = false;
                     }}
                     class="flex flex-col items-center gap-1"
                 >
@@ -416,32 +423,34 @@
                 </button>
             </div>
 
-            <!-- Bottom Progress Bar & Time -->
-            <div
-                class="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent"
-            >
-                <!-- Progress Bar -->
+            <!-- Bottom Progress Bar & Time (only shows on tap or when paused) -->
+            {#if showControls || !isPlaying}
                 <div
-                    class="relative h-1 bg-white/30 rounded-full mb-3 cursor-pointer"
-                    onclick={handleSeek}
+                    class="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent z-10 transition-opacity duration-300"
                 >
+                    <!-- Progress Bar -->
                     <div
-                        class="absolute top-0 left-0 h-full bg-brand-orange rounded-full transition-all"
-                        style="width: {progress}%"
-                    ></div>
+                        class="relative h-1 bg-white/30 rounded-full mb-3 cursor-pointer"
+                        onclick={handleSeek}
+                    >
+                        <div
+                            class="absolute top-0 left-0 h-full bg-brand-orange rounded-full transition-all"
+                            style="width: {progress}%"
+                        ></div>
+                    </div>
+                    <div
+                        class="flex items-center justify-between text-xs text-gray-300"
+                    >
+                        <span>{formatTime(currentTime)}</span>
+                        <span>{formatTime(duration)}</span>
+                    </div>
                 </div>
-                <div
-                    class="flex items-center justify-between text-xs text-gray-300"
-                >
-                    <span>{formatTime(currentTime)}</span>
-                    <span>{formatTime(duration)}</span>
-                </div>
-            </div>
+            {/if}
 
             <!-- Episode List Panel -->
             {#if showEpisodeList}
                 <div
-                    class="absolute inset-0 pt-16 bg-black/90 backdrop-blur-sm flex flex-col"
+                    class="absolute inset-0 pt-16 bg-black/90 backdrop-blur-sm flex flex-col z-30"
                 >
                     <div
                         class="flex items-center justify-between p-4 border-b border-white/10"
@@ -476,7 +485,7 @@
             <!-- Info Panel -->
             {#if showInfo}
                 <div
-                    class="absolute inset-0 pt-16 bg-black/90 backdrop-blur-sm flex flex-col"
+                    class="absolute inset-0 pt-16 bg-black/90 backdrop-blur-sm flex flex-col z-30"
                 >
                     <div
                         class="flex items-center justify-between p-4 border-b border-white/10"
@@ -521,7 +530,7 @@
             <!-- Quality Selection Panel -->
             {#if showQualityMenu}
                 <div
-                    class="absolute inset-0 pt-16 bg-black/90 backdrop-blur-sm flex flex-col"
+                    class="absolute inset-0 pt-16 bg-black/90 backdrop-blur-sm flex flex-col z-30"
                 >
                     <div
                         class="flex items-center justify-between p-4 border-b border-white/10"

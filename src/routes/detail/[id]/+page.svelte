@@ -197,12 +197,13 @@
         <div
           class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-8 lg:grid-cols-10 gap-2"
         >
-          {#each episodes as ep, index}
+          {#each episodes as _, index}
+            {@const epNum = index + 1}
             <a
-              href="/watch/{drama.bookId}?ep={ep.chapterIndex || index + 1}"
+              href="/watch/{drama.bookId}?ep={epNum}"
               class="flex items-center justify-center p-3 glass rounded-lg hover:bg-brand-orange/20 hover:border-brand-orange/50 transition-all text-sm font-medium"
             >
-              {ep.chapterIndex || index + 1}
+              {epNum}
             </a>
           {/each}
         </div>
