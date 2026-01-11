@@ -219,7 +219,7 @@ export async function getVip(page = 1): Promise<Drama[]> {
 
     // Fallback to secondary API (api.gimita.id) via proxy
     try {
-        const secondaryResponse = await fetch(`/api/action=vip?page=${page}&size=10&provider=secondary`);
+        const secondaryResponse = await fetch(`/api?action=vip&page=${page}&size=10&provider=secondary`);
         if (secondaryResponse.ok) {
             const data = await secondaryResponse.json() as SecondaryApiResponse;
             if (data?.data?.bookList && Array.isArray(data.data.bookList)) {
