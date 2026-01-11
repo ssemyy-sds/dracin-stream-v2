@@ -39,17 +39,22 @@
     let currentQuality = $state(540);
     let error = $state<string | null>(null);
 
+    // Auto-play next episode setting
+    let autoPlayNext = $state(true);
+    let showNextEpisodePrompt = $state(false);
+    let nextEpisodeCountdown = $state(5);
+
     // Video player state
     let videoElement: HTMLVideoElement;
     let isPlaying = $state(false);
     let progress = $state(0);
     let currentTime = $state(0);
     let duration = $state(0);
-    
+
     // Controls visibility - show on tap, hide during playback
     let showControls = $state(true);
     let controlsTimeout: ReturnType<typeof setTimeout>;
-    
+
     // Track if we need to load video once element is ready
     let pendingVideoSrc = $state<string | null>(null);
 
@@ -66,7 +71,7 @@
     onMount(async () => {
         await loadDramaData();
     });
-    
+
     // Watch for videoElement to be bound and load pending video
     $effect(() => {
         if (videoElement && pendingVideoSrc) {
@@ -121,7 +126,7 @@
             if (defaultOption) {
                 videoSrc = defaultOption.videoUrl;
                 currentQuality = defaultOption.quality;
-                
+
                 // If videoElement is bound, load directly; otherwise set pending
                 if (videoElement) {
                     videoElement.src = defaultOption.videoUrl;
@@ -198,7 +203,7 @@
     function handleVideoTap() {
         // Always toggle play/pause on tap
         togglePlay();
-        
+
         // Also show controls temporarily
         showControls = true;
         clearTimeout(controlsTimeout);
@@ -231,17 +236,47 @@
         const secs = Math.floor(seconds % 60);
         return `${mins}:${secs.toString().padStart(2, "0")}`;
     }
-    
+
     function handlePlay() {
         isPlaying = true;
         showControls = false; // Hide controls when playing
         clearTimeout(controlsTimeout);
     }
-    
+
     function handlePause() {
         isPlaying = false;
         showControls = true; // Show controls when paused
         clearTimeout(controlsTimeout);
+    }
+
+    // Auto-play next episode handling
+    let countdownInterval: ReturnType<typeof setInterval>;
+
+    function handleVideoEnded() {
+        if (currentEpisode >= episodes.length) {
+            // Last episode, show completion message
+            showControls = true;
+            return;
+        }
+
+        if (autoPlayNext) {
+            // Immediately go to next episode
+            nextEpisode();
+        } else {
+            // Show prompt to manually go to next episode
+            showNextEpisodePrompt = true;
+        }
+    }
+
+    function cancelAutoPlay() {
+        clearInterval(countdownInterval);
+        showNextEpisodePrompt = false;
+    }
+
+    function playNextNow() {
+        clearInterval(countdownInterval);
+        showNextEpisodePrompt = false;
+        nextEpisode();
     }
 </script>
 
@@ -282,6 +317,7 @@
                 onplay={handlePlay}
                 onpause={handlePause}
                 ontimeupdate={handleTimeUpdate}
+                onended={handleVideoEnded}
                 onerror={() => {
                     error = "Failed to load video";
                 }}
@@ -436,6 +472,22 @@
                     </div>
                     <span class="text-xs">Next</span>
                 </button>
+
+                <!-- Auto-play Toggle -->
+                <button
+                    onclick={() => (autoPlayNext = !autoPlayNext)}
+                    class="flex flex-col items-center gap-1"
+                    title={autoPlayNext ? "Auto-play ON" : "Auto-play OFF"}
+                >
+                    <div
+                        class="w-12 h-12 rounded-full glass flex items-center justify-center {autoPlayNext
+                            ? 'bg-green-500'
+                            : ''}"
+                    >
+                        <span class="text-xs font-bold">AUTO</span>
+                    </div>
+                    <span class="text-xs">{autoPlayNext ? "On" : "Off"}</span>
+                </button>
             </div>
 
             <!-- Bottom Progress Bar & Time (only shows on tap or when paused) -->
@@ -458,6 +510,58 @@
                     >
                         <span>{formatTime(currentTime)}</span>
                         <span>{formatTime(duration)}</span>
+                    </div>
+                </div>
+            {/if}
+
+            <!-- Next Episode Prompt -->
+            {#if showNextEpisodePrompt && currentEpisode < episodes.length}
+                <div
+                    class="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm z-40"
+                >
+                    <div class="text-center p-6">
+                        <h3 class="text-lg font-semibold mb-2">
+                            Episode selesai!
+                        </h3>
+                        {#if autoPlayNext}
+                            <p class="text-gray-400 mb-4">
+                                Lanjut ke Episode {currentEpisode + 1} dalam {nextEpisodeCountdown}
+                                detik...
+                            </p>
+                            <div class="flex gap-3 justify-center">
+                                <button
+                                    onclick={cancelAutoPlay}
+                                    class="px-6 py-3 glass rounded-full font-semibold hover:bg-white/20 transition-colors"
+                                >
+                                    Batal
+                                </button>
+                                <button
+                                    onclick={playNextNow}
+                                    class="px-6 py-3 bg-brand-orange rounded-full font-semibold hover:bg-brand-orange/80 transition-colors"
+                                >
+                                    Putar Sekarang
+                                </button>
+                            </div>
+                        {:else}
+                            <p class="text-gray-400 mb-4">
+                                Lanjutkan ke Episode {currentEpisode + 1}?
+                            </p>
+                            <div class="flex gap-3 justify-center">
+                                <button
+                                    onclick={() =>
+                                        (showNextEpisodePrompt = false)}
+                                    class="px-6 py-3 glass rounded-full font-semibold hover:bg-white/20 transition-colors"
+                                >
+                                    Tutup
+                                </button>
+                                <button
+                                    onclick={playNextNow}
+                                    class="px-6 py-3 bg-brand-orange rounded-full font-semibold hover:bg-brand-orange/80 transition-colors"
+                                >
+                                    Episode Selanjutnya
+                                </button>
+                            </div>
+                        {/if}
                     </div>
                 </div>
             {/if}
