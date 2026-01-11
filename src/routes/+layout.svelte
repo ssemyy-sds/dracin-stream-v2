@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { page } from "$app/stores";
   import { Coffee } from "lucide-svelte";
   import "../app.css";
   import Navbar from "$lib/components/Navbar.svelte";
@@ -9,6 +10,9 @@
   let { children } = $props();
 
   let showDonation = $state(false);
+
+  // Hide donation button on watch page
+  let isWatchPage = $derived($page.url.pathname.startsWith("/watch"));
 
   onMount(() => {
     favorites.init();
@@ -58,7 +62,17 @@
     </div>
   </footer>
 
-  <!-- Floating Donation Button removed - moved to detail page only -->
+  <!-- Floating Donation Button (hidden on watch page) -->
+  {#if !isWatchPage}
+    <button
+      onclick={() => (showDonation = true)}
+      class="fixed bottom-6 right-6 flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-brand-orange to-orange-600 rounded-full shadow-lg shadow-brand-orange/30 hover:shadow-brand-orange/50 hover:scale-105 transition-all z-40"
+      aria-label="Donasi"
+    >
+      <Coffee class="w-5 h-5" />
+      <span class="text-sm font-semibold hidden sm:inline">Traktir Kopi</span>
+    </button>
+  {/if}
 
   <!-- Donation Modal -->
   <DonationModal isOpen={showDonation} onClose={() => (showDonation = false)} />

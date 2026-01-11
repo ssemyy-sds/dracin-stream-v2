@@ -9,12 +9,10 @@
     Calendar,
     Tag,
     Loader2,
-    Coffee,
   } from "lucide-svelte";
   import { getDramaDetail, getAllEpisodes } from "$lib/services/api";
   import { favorites } from "$lib/stores/favorites";
   import { fixUrl, truncateText } from "$lib/utils/helpers";
-  import DonationModal from "$lib/components/DonationModal.svelte";
   import type { Drama, Episode } from "$lib/types";
 
   let bookId = $derived($page.params.id);
@@ -25,7 +23,6 @@
   );
   let isLoading = $state(true);
   let error = $state<string | null>(null);
-  let showDonation = $state(false);
 
   let isFavorited = $derived(
     drama ? $favorites.some((f) => f.bookId === drama.bookId) : false,
@@ -214,17 +211,4 @@
       {/if}
     </section>
   {/if}
-
-  <!-- Floating Donation Button (only on detail page) -->
-  <button
-    onclick={() => (showDonation = true)}
-    class="fixed bottom-6 right-6 flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-brand-orange to-orange-600 rounded-full shadow-lg shadow-brand-orange/30 hover:shadow-brand-orange/50 hover:scale-105 transition-all z-40"
-    aria-label="Donasi"
-  >
-    <Coffee class="w-5 h-5" />
-    <span class="text-sm font-semibold hidden sm:inline">Traktir Kopi</span>
-  </button>
-
-  <!-- Donation Modal -->
-  <DonationModal isOpen={showDonation} onClose={() => (showDonation = false)} />
 </div>
