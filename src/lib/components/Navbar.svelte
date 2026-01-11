@@ -138,7 +138,7 @@
             />
             {#if $favoritesCount > 0}
               <span
-                class="absolute -top-1 -right-1 w-5 h-5 bg-brand-orange text-white text-xs font-bold rounded-full flex items-center justify-center"
+                class="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 bg-brand-orange text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-black"
               >
                 {$favoritesCount > 99 ? "99+" : $favoritesCount}
               </span>
