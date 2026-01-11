@@ -55,6 +55,10 @@
     let showControls = $state(true);
     let controlsTimeout: ReturnType<typeof setTimeout>;
 
+    // Right panel visibility - auto-hide after 5 seconds
+    let showPanel = $state(true);
+    let panelTimeout: ReturnType<typeof setTimeout>;
+
     // Track if we need to load video once element is ready
     let pendingVideoSrc = $state<string | null>(null);
 
@@ -75,14 +79,15 @@
     // Watch for videoElement to be bound and load pending video
     $effect(() => {
         if (videoElement && pendingVideoSrc) {
-            videoElement.src = pendingVideoSrc;
+            const srcToLoad = pendingVideoSrc;
+            pendingVideoSrc = null;
+            videoElement.src = srcToLoad;
             videoElement.load();
-            videoElement.onloadeddata = () => {
+            videoElement.oncanplay = () => {
                 videoElement.play().catch(() => {
                     console.log("Autoplay blocked");
                 });
             };
-            pendingVideoSrc = null;
         }
     });
 
@@ -131,7 +136,7 @@
                 if (videoElement) {
                     videoElement.src = defaultOption.videoUrl;
                     videoElement.load();
-                    videoElement.onloadeddata = () => {
+                    videoElement.oncanplay = () => {
                         videoElement.play().catch(() => {
                             console.log("Autoplay blocked");
                         });
@@ -204,12 +209,17 @@
         // Always toggle play/pause on tap
         togglePlay();
 
-        // Also show controls temporarily
+        // Also show controls and panel temporarily
         showControls = true;
+        showPanel = true;
         clearTimeout(controlsTimeout);
+        clearTimeout(panelTimeout);
         controlsTimeout = setTimeout(() => {
             if (isPlaying) showControls = false;
         }, 3000);
+        panelTimeout = setTimeout(() => {
+            if (isPlaying) showPanel = false;
+        }, 5000);
     }
 
     function handleTimeUpdate() {
@@ -241,12 +251,19 @@
         isPlaying = true;
         showControls = false; // Hide controls when playing
         clearTimeout(controlsTimeout);
+        // Auto-hide panel after 5 seconds
+        clearTimeout(panelTimeout);
+        panelTimeout = setTimeout(() => {
+            showPanel = false;
+        }, 5000);
     }
 
     function handlePause() {
         isPlaying = false;
         showControls = true; // Show controls when paused
+        showPanel = true; // Show panel when paused
         clearTimeout(controlsTimeout);
+        clearTimeout(panelTimeout);
     }
 
     // Auto-play next episode handling
@@ -362,133 +379,140 @@
                 </div>
             {/if}
 
-            <!-- Right Side Action Buttons -->
-            <div
-                class="absolute right-4 bottom-32 flex flex-col items-center gap-5 z-20"
-            >
-                <!-- Previous Episode -->
-                <button
-                    onclick={prevEpisode}
-                    disabled={currentEpisode <= 1}
-                    class="flex flex-col items-center gap-1 disabled:opacity-30"
+            <!-- Right Side Action Buttons (auto-hide after 5s) -->
+            {#if showPanel || !isPlaying}
+                <div
+                    class="absolute right-4 bottom-32 flex flex-col items-center gap-5 z-20 transition-opacity duration-300"
                 >
-                    <div
-                        class="w-12 h-12 rounded-full glass flex items-center justify-center"
+                    <!-- Previous Episode -->
+                    <button
+                        onclick={prevEpisode}
+                        disabled={currentEpisode <= 1}
+                        class="flex flex-col items-center gap-1 disabled:opacity-30"
                     >
-                        <ChevronUp class="w-6 h-6" />
-                    </div>
-                    <span class="text-xs">Prev</span>
-                </button>
+                        <div
+                            class="w-12 h-12 rounded-full glass flex items-center justify-center"
+                        >
+                            <ChevronUp class="w-6 h-6" />
+                        </div>
+                        <span class="text-xs">Prev</span>
+                    </button>
 
-                <!-- Episodes List -->
-                <button
-                    onclick={() => {
-                        showEpisodeList = !showEpisodeList;
-                        showInfo = false;
-                        showQualityMenu = false;
-                    }}
-                    class="flex flex-col items-center gap-1"
-                >
-                    <div
-                        class="w-12 h-12 rounded-full glass flex items-center justify-center {showEpisodeList
-                            ? 'bg-brand-orange'
-                            : ''}"
-                    >
-                        <List class="w-6 h-6" />
-                    </div>
-                    <span class="text-xs">{episodes.length} Ep</span>
-                </button>
-
-                <!-- Favorite -->
-                <button
-                    onclick={handleFavorite}
-                    class="flex flex-col items-center gap-1"
-                >
-                    <div
-                        class="w-12 h-12 rounded-full glass flex items-center justify-center {isFavorited
-                            ? 'bg-red-500'
-                            : ''}"
-                    >
-                        <Heart
-                            class="w-6 h-6 {isFavorited ? 'fill-white' : ''}"
-                        />
-                    </div>
-                    <span class="text-xs">{isFavorited ? "Saved" : "Save"}</span
-                    >
-                </button>
-
-                <!-- Info -->
-                <button
-                    onclick={() => {
-                        showInfo = !showInfo;
-                        showEpisodeList = false;
-                        showQualityMenu = false;
-                    }}
-                    class="flex flex-col items-center gap-1"
-                >
-                    <div
-                        class="w-12 h-12 rounded-full glass flex items-center justify-center {showInfo
-                            ? 'bg-brand-orange'
-                            : ''}"
-                    >
-                        <Info class="w-6 h-6" />
-                    </div>
-                    <span class="text-xs">Info</span>
-                </button>
-
-                <!-- Quality Selector -->
-                {#if qualityOptions.length > 1}
+                    <!-- Episodes List -->
                     <button
                         onclick={() => {
-                            showQualityMenu = !showQualityMenu;
+                            showEpisodeList = !showEpisodeList;
                             showInfo = false;
-                            showEpisodeList = false;
+                            showQualityMenu = false;
                         }}
                         class="flex flex-col items-center gap-1"
                     >
                         <div
-                            class="w-12 h-12 rounded-full glass flex items-center justify-center {showQualityMenu
+                            class="w-12 h-12 rounded-full glass flex items-center justify-center {showEpisodeList
                                 ? 'bg-brand-orange'
                                 : ''}"
                         >
-                            <span class="text-xs font-bold"
-                                >{currentQuality}p</span
-                            >
+                            <List class="w-6 h-6" />
                         </div>
-                        <span class="text-xs">Quality</span>
+                        <span class="text-xs">{episodes.length} Ep</span>
                     </button>
-                {/if}
 
-                <!-- Next Episode -->
-                <button
-                    onclick={nextEpisode}
-                    disabled={currentEpisode >= episodes.length}
-                    class="flex flex-col items-center gap-1 disabled:opacity-30"
-                >
-                    <div
-                        class="w-12 h-12 rounded-full glass flex items-center justify-center"
+                    <!-- Favorite -->
+                    <button
+                        onclick={handleFavorite}
+                        class="flex flex-col items-center gap-1"
                     >
-                        <ChevronDown class="w-6 h-6" />
-                    </div>
-                    <span class="text-xs">Next</span>
-                </button>
+                        <div
+                            class="w-12 h-12 rounded-full glass flex items-center justify-center {isFavorited
+                                ? 'bg-red-500'
+                                : ''}"
+                        >
+                            <Heart
+                                class="w-6 h-6 {isFavorited
+                                    ? 'fill-white'
+                                    : ''}"
+                            />
+                        </div>
+                        <span class="text-xs"
+                            >{isFavorited ? "Saved" : "Save"}</span
+                        >
+                    </button>
 
-                <!-- Auto-play Toggle -->
-                <button
-                    onclick={() => (autoPlayNext = !autoPlayNext)}
-                    class="flex flex-col items-center gap-1"
-                    title={autoPlayNext ? "Auto-play ON" : "Auto-play OFF"}
-                >
-                    <div
-                        class="w-12 h-12 rounded-full glass flex items-center justify-center {autoPlayNext
-                            ? 'bg-green-500'
-                            : ''}"
+                    <!-- Info -->
+                    <button
+                        onclick={() => {
+                            showInfo = !showInfo;
+                            showEpisodeList = false;
+                            showQualityMenu = false;
+                        }}
+                        class="flex flex-col items-center gap-1"
                     >
-                        <span class="text-xs font-bold">AUTO</span>
-                    </div>
-                    <span class="text-xs">{autoPlayNext ? "On" : "Off"}</span>
-                </button>
-            </div>
+                        <div
+                            class="w-12 h-12 rounded-full glass flex items-center justify-center {showInfo
+                                ? 'bg-brand-orange'
+                                : ''}"
+                        >
+                            <Info class="w-6 h-6" />
+                        </div>
+                        <span class="text-xs">Info</span>
+                    </button>
+
+                    <!-- Quality Selector -->
+                    {#if qualityOptions.length > 1}
+                        <button
+                            onclick={() => {
+                                showQualityMenu = !showQualityMenu;
+                                showInfo = false;
+                                showEpisodeList = false;
+                            }}
+                            class="flex flex-col items-center gap-1"
+                        >
+                            <div
+                                class="w-12 h-12 rounded-full glass flex items-center justify-center {showQualityMenu
+                                    ? 'bg-brand-orange'
+                                    : ''}"
+                            >
+                                <span class="text-xs font-bold"
+                                    >{currentQuality}p</span
+                                >
+                            </div>
+                            <span class="text-xs">Quality</span>
+                        </button>
+                    {/if}
+
+                    <!-- Next Episode -->
+                    <button
+                        onclick={nextEpisode}
+                        disabled={currentEpisode >= episodes.length}
+                        class="flex flex-col items-center gap-1 disabled:opacity-30"
+                    >
+                        <div
+                            class="w-12 h-12 rounded-full glass flex items-center justify-center"
+                        >
+                            <ChevronDown class="w-6 h-6" />
+                        </div>
+                        <span class="text-xs">Next</span>
+                    </button>
+
+                    <!-- Auto-play Toggle -->
+                    <button
+                        onclick={() => (autoPlayNext = !autoPlayNext)}
+                        class="flex flex-col items-center gap-1"
+                        title={autoPlayNext ? "Auto-play ON" : "Auto-play OFF"}
+                    >
+                        <div
+                            class="w-12 h-12 rounded-full glass flex items-center justify-center {autoPlayNext
+                                ? 'bg-green-500'
+                                : ''}"
+                        >
+                            <span class="text-xs font-bold">AUTO</span>
+                        </div>
+                        <span class="text-xs"
+                            >{autoPlayNext ? "On" : "Off"}</span
+                        >
+                    </button>
+                </div>
+            {/if}
 
             <!-- Bottom Progress Bar & Time (only shows on tap or when paused) -->
             {#if showControls || !isPlaying}

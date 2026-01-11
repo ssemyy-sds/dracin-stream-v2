@@ -32,7 +32,7 @@
       <div class="flex flex-col md:flex-row items-center justify-between gap-4">
         <div class="text-center md:text-left">
           <p class="text-sm text-gray-400">
-            © 2024 DRACIN. Streaming drama China dengan subtitle Indonesia.
+            © 2026 DRACIN. Streaming drama China dengan subtitle Indonesia.
           </p>
           <p class="text-xs text-gray-500 mt-1">
             V2.0 - Built with SvelteKit ❤️
