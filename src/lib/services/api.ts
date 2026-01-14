@@ -2,8 +2,6 @@ import type {
     Drama,
     Episode,
     QualityOption,
-    DramaDetailResponse,
-    EpisodeResponse,
     CategoryType
 } from '$lib/types';
 import { fixUrl, parseRating, parseYear } from '$lib/utils/helpers';
@@ -18,6 +16,7 @@ function normalizeDrama(data: any): Drama {
     // Handle genres/tags
     let genres: string[] = [];
     if (data.tags && Array.isArray(data.tags)) {
+        // Handle object array [{ tagName: "Action" }] or string array
         genres = data.tags.map((t: any) => typeof t === 'string' ? t : t.tagName || '').filter(Boolean);
     } else if (data.tagNameList && Array.isArray(data.tagNameList)) {
         genres = data.tagNameList;
@@ -31,25 +30,41 @@ function normalizeDrama(data: any): Drama {
         const match = viewCount.match(/(\d+\.?\d*)(M|K)?/i);
         if (match) {
             let num = parseFloat(match[1]);
-            if (match[2]?.toUpperCase() === 'M') num *= 1000000;
-            if (match[2]?.toUpperCase() === 'K') num *= 1000;
+            const unit = match[2]?.toUpperCase();
+            if (unit === 'M') num *= 1000000;
+            if (unit === 'K') num *= 1000;
             viewCount = Math.round(num);
         }
     }
 
+    // Handle bookId variants
+    const bookId = data.id || data.bookId || data.bookid || '';
+
+    // Handle bookName variants
+    const bookName = data.name || data.bookName || data.bookname || 'Unknown';
+
+    // Handle cover variants
+    const cover = fixUrl(data.cover || data.coverWap || data.coverUrl || '');
+
+    // Handle introduction variants
+    const introduction = data.introduction || data.description || '';
+
+    // Handle corner label
+    const cornerLabel = data.cornerName || data.cornerLabel;
+
     return {
-        bookId: data.bookId || data.bookid || data.id || '',
-        bookName: data.bookName || data.bookname || data.name || 'Unknown',
-        cover: fixUrl(data.coverWap || data.cover || data.coverUrl || ''),
-        introduction: data.introduction || data.description || '',
+        bookId: String(bookId),
+        bookName,
+        cover,
+        introduction,
         rating: parseRating(data.rating || data.score),
         genres,
         status: data.finished === false || data.status === 'Ongoing' ? 'Ongoing' : 'Completed',
         year: parseYear(data.year || data.releaseYear || 0),
         latestEpisode: data.latestChapter || data.chapterCount || data.totalChapter || 0,
         chapterCount: data.chapterCount || data.totalChapter,
-        viewCount,
-        cornerLabel: data.cornerLabel || data.cornerName
+        viewCount: Number(viewCount) || 0,
+        cornerLabel
     };
 }
 
@@ -73,8 +88,6 @@ async function fetchApi<T>(endpoint: string, params: Record<string, string | num
         Object.entries(params).map(([k, v]) => [k, String(v)])
     );
 
-    // We strictly use the proxy which is now hardcoded to the secondary API
-    // We don't need to send 'provider' anymore as the proxy ignores it, but it doesn't hurt.
     const url = `${API_BASE}/${endpoint}${endpoint.includes('?') ? '&' : '?'}${queryParams.toString()}`;
 
     const response = await fetch(url);
@@ -85,8 +98,12 @@ async function fetchApi<T>(endpoint: string, params: Record<string, string | num
 
     const result = await response.json();
 
-    // Handle wrapper: { success: true, data: [...] } if present
-    if (result && typeof result === 'object' && 'data' in result && !Array.isArray(result)) {
+    // The secondary API responses often have a { data: ... } wrapper
+    // But sometimes we need the whole object (like for download/${bookId})
+    // For list endpoints (home, recommend), it usually returns { data: [ ... ] } or just [ ... ]
+    // We'll let the caller handle specific structures if needed, but here's a generic unwrap if it's a simple data wrapper
+    if (result && typeof result === 'object' && 'data' in result && !result.info) {
+        // Special case: if it has 'info' it's likely the download endpoint which we need both info and data from
         return result.data as T;
     }
 
@@ -127,45 +144,63 @@ export async function getRecommend(page = 1): Promise<Drama[]> {
  * Get drama details by ID
  */
 export async function getDramaDetail(bookId: string): Promise<Drama> {
-    // The secondary API uses 'chapters/{bookId}' for details + chapters
-    // Or sometimes just 'detail'? 
-    // Todo.md says: Call `chapters/${bookId}` and return normalized data.
-    const data = await fetchApi<any>(`chapters/${bookId}`);
-    return normalizeDrama(data);
+    try {
+        // Fetch from download/${bookId} to get info and episodes
+        const downloadData = await fetchApi<any>(`download/${bookId}`);
+
+        let dramaInfo = null;
+
+        if (downloadData && downloadData.info) {
+            dramaInfo = downloadData.info;
+        }
+
+        // To ensure we have full metadata (sometimes missing in download info), 
+        // we can try to fetch from search if info is sparse, but for now let's rely on info
+        // and if it's missing crucial fields, the UI might handle it or we can do a fallback search.
+        // However, per instructions, we map id->bookId, name->bookName etc.
+
+        if (dramaInfo) {
+            // Apply normalization
+            const drama = normalizeDrama(dramaInfo);
+            // Ensure chapterCount is correct from data length if available
+            if (downloadData.data && Array.isArray(downloadData.data)) {
+                drama.chapterCount = downloadData.data.length;
+                drama.latestEpisode = downloadData.data.length;
+            }
+            return drama;
+        }
+
+        return normalizeDrama({ id: bookId, name: 'Unknown' });
+    } catch (e) {
+        console.error('getDramaDetail error:', e);
+        return normalizeDrama({ id: bookId });
+    }
 }
 
 /**
  * Get all episodes for a drama
  */
 export async function getAllEpisodes(bookId: string): Promise<Array<Omit<Episode, 'videoUrl' | 'qualityOptions'>>> {
-    // Call 'chapters/{bookId}'
-    const data = await fetchApi<any>(`chapters/${bookId}`);
+    try {
+        const data = await fetchApi<any>(`download/${bookId}`);
 
-    let chapters = [];
-    if (Array.isArray(data)) {
-        chapters = data;
-    } else if (data) {
-        if (Array.isArray(data.chapters)) chapters = data.chapters;
-        else if (Array.isArray(data.episodes)) chapters = data.episodes;
-        else if (Array.isArray(data.list)) chapters = data.list;
+        // Episodes are in data.data
+        let chapters = [];
+        if (data && Array.isArray(data.data)) {
+            chapters = data.data;
+        } else if (Array.isArray(data)) {
+            chapters = data;
+        }
+
+        if (chapters.length > 0) {
+            return chapters.map((ep: any, idx: number) => normalizeEpisode(ep, idx));
+        }
+
+        return [];
+    } catch (e) {
+        console.error('getAllEpisodes error:', e);
+        return [];
     }
-
-    if (chapters.length > 0) {
-        return chapters.map((ep: any, idx: number) => normalizeEpisode(ep, idx));
-    }
-
-    // Fallback: Generate based on chapterCount if available but no list
-    const count = data?.chapterCount || data?.totalChapter || 0;
-    if (count > 0) {
-        return Array.from({ length: count }, (_, i) => ({
-            chapterId: `${i + 1}`,
-            chapterIndex: i + 1,
-            chapterName: `Episode ${i + 1}`,
-            cover: fixUrl(data.cover || '')
-        }));
-    }
-
-    return [];
 }
 
 /**
@@ -173,41 +208,29 @@ export async function getAllEpisodes(bookId: string): Promise<Array<Omit<Episode
  */
 export async function getStreamUrl(bookId: string, episodeNum: number): Promise<QualityOption[]> {
     try {
-        const data = await fetchApi<any>(`chapters/${bookId}`);
+        const data = await fetchApi<any>(`download/${bookId}`);
 
         // Find episode
         let chapters = [];
-        if (Array.isArray(data)) chapters = data;
-        else if (data && Array.isArray(data.chapters)) chapters = data.chapters;
-        else if (data && Array.isArray(data.episodes)) chapters = data.episodes;
-
-        // If empty or not found, try to see if it's a single video response
-        if (chapters.length === 0 && data?.videoPath) {
-            return [{
-                quality: 720,
-                videoUrl: fixUrl(data.videoPath),
-                isDefault: true
-            }];
+        if (data && Array.isArray(data.data)) {
+            chapters = data.data;
         }
 
-        const episodeIndex = Math.max(0, episodeNum - 1);
-        const episode = chapters[episodeIndex];
+        if (chapters.length === 0) return [];
+
+        // Find by chapterIndex (1-based usually) or just index
+        // The API usually returns chapterIndex matching the episode number
+        const episode = chapters.find((ch: any) => ch.chapterIndex === episodeNum) || chapters[episodeNum - 1];
 
         if (!episode) return [];
 
-        // Check for videoPath in episode
         const url = episode.videoPath || episode.url || episode.path;
         if (url) {
             return [{
-                quality: 720, // Default 720
+                quality: 720, // Default to 720 as generic
                 videoUrl: fixUrl(url),
                 isDefault: true
             }];
-        }
-
-        // If we still have cdnList logic from old API, we can keep it just in case
-        if (episode.cdnList) {
-            // ... extractVideoUrls logic would go here if needed, but secondary API seems to use videoPath
         }
 
         return [];
@@ -218,7 +241,7 @@ export async function getStreamUrl(bookId: string, episodeNum: number): Promise<
 }
 
 /**
- * Get trending dramas -> map to Home/Recommend
+ * Get trending dramas -> map to Home
  */
 export async function getTrending(): Promise<Drama[]> {
     return getHome();
@@ -239,7 +262,7 @@ export async function getLatest(): Promise<Drama[]> {
 }
 
 /**
- * Get personalized recommendations
+ * Get personalized recommendations -> map to Recommend
  */
 export async function getForYou(): Promise<Drama[]> {
     return getRecommend();
@@ -251,16 +274,9 @@ export async function getForYou(): Promise<Drama[]> {
 export async function getVip(page = 1): Promise<Drama[]> {
     try {
         const data = await fetchApi<any[]>('vip', { page });
-
         if (Array.isArray(data)) {
             return data.map(normalizeDrama);
         }
-
-        // Handle nested structure if any (legacy from primary API, likely not needed for secondary but safe to keep check)
-        if (data && (data as any).columnVoList) {
-            // ...
-        }
-
         return [];
     } catch (e) {
         console.error('getVip error:', e);
@@ -269,8 +285,7 @@ export async function getVip(page = 1): Promise<Drama[]> {
 }
 
 /**
- * Get Indonesian dubbed content
- * Secondary API might not have this, fallback to Home
+ * Get Indonesian dubbed content -> map to Home
  */
 export async function getDubIndo(classify = 'all', page = 1): Promise<Drama[]> {
     return getHome(page);
@@ -282,8 +297,12 @@ export async function getDubIndo(classify = 'all', page = 1): Promise<Drama[]> {
 export async function searchDramas(query: string): Promise<Drama[]> {
     try {
         const data = await fetchApi<any[]>('search', { keyword: query });
-        if (!Array.isArray(data)) return [];
-        return data.map(normalizeDrama);
+        if (Array.isArray(data)) return data.map(normalizeDrama);
+        // If data is wrapped
+        if (data && (data as any).list && Array.isArray((data as any).list)) {
+            return (data as any).list.map(normalizeDrama);
+        }
+        return [];
     } catch (e) {
         console.error('searchDramas error:', e);
         return [];
