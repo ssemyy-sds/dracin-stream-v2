@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { ChevronLeft, ChevronRight, Star, Play } from "lucide-svelte";
   import DramaCard from "$lib/components/DramaCard.svelte";
-  import { getHome, getRecommend, getVip } from "$lib/services/api-secondary";
+  import { getHome, getRecommend, getVip } from "$lib/services/api";
   import { fixUrl, truncateText } from "$lib/utils/helpers";
   import type { Drama } from "$lib/types";
 
