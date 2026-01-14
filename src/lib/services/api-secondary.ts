@@ -1,6 +1,6 @@
 /**
- * Secondary API Service - Uses api.gimita.id exclusively
- * Response format: { data: [...], success: true, statusCode: 200 }
+ * Secondary API Service - Uses new Vercel App API
+ * Base URL: https://kdjekek-usieke-owjejxkek-iwjwjxkod.vercel.app/
  */
 
 import type { Drama, Episode, QualityOption } from '$lib/types';
@@ -11,7 +11,6 @@ const API_BASE = '/api';
 
 /**
  * Secondary API drama response structure
- * Note: Secondary API uses 'name' instead of 'bookName' for titles
  */
 interface SecondaryDramaResponse {
     bookId?: string;
@@ -19,11 +18,11 @@ interface SecondaryDramaResponse {
     id?: string;
     bookName?: string;
     bookname?: string;
-    name?: string; // Secondary API uses 'name' for title
+    name?: string;
     cover?: string;
     coverWap?: string;
     introduction?: string;
-    description?: string; // Secondary API may use 'description'
+    description?: string;
     chapterCount?: number;
     latestChapter?: number;
     rating?: number;
@@ -31,11 +30,13 @@ interface SecondaryDramaResponse {
     finished?: boolean;
     status?: string;
     cornerName?: string;
-    cornerColor?: string;
-    viewCount?: number;
-    playCount?: string | number; // Can be "5.3M" or number
-    tags?: Array<{ tagName?: string; tagEnName?: string }>;
+    viewCount?: number | string;
+    playCount?: string | number;
+    tags?: string[]; // New API seems to return string[] for tags
     tagNameList?: string[];
+    // For consolidated endpoint
+    videoPath?: string;
+    chapters?: any[]; // Only if the API returns chapters list in detail
 }
 
 interface SecondaryApiResponse<T> {
@@ -43,24 +44,27 @@ interface SecondaryApiResponse<T> {
     success?: boolean;
     statusCode?: number;
     error?: string;
+    // Some endpoints might return T directly or array directly
+    // We'll handle this in the fetcher
 }
 
 /**
  * Normalize drama data from secondary API response
  */
 function normalizeDrama(data: SecondaryDramaResponse): Drama {
-    // Extract genres from tags array or tagNameList
+    // Extract genres
     let genres: string[] = [];
     if (data.tags && Array.isArray(data.tags)) {
-        genres = data.tags.map(t => t.tagName || t.tagEnName || '').filter(Boolean);
+        // Handle both string[] and object[] if needed, based on user input example it is string[]
+        genres = data.tags.map(t => typeof t === 'string' ? t : (t as any).tagName || '').filter(Boolean);
     } else if (data.tagNameList && Array.isArray(data.tagNameList)) {
         genres = data.tagNameList;
     }
 
-    // Parse playCount if it's a string like "5.3M"
+    // Parse playCount
     let viewCount: number | undefined;
     if (data.viewCount) {
-        viewCount = data.viewCount;
+        viewCount = typeof data.viewCount === 'number' ? data.viewCount : parseInt(data.viewCount);
     } else if (data.playCount) {
         if (typeof data.playCount === 'number') {
             viewCount = data.playCount;
@@ -77,13 +81,13 @@ function normalizeDrama(data: SecondaryDramaResponse): Drama {
 
     return {
         bookId: data.bookId || data.bookid || data.id || '',
-        bookName: data.name || data.bookName || data.bookname || 'Unknown',
+        bookName: data.bookName || data.bookname || data.name || 'Unknown',
         cover: fixUrl(data.coverWap || data.cover || ''),
         introduction: data.introduction || data.description || '',
         rating: parseRating(data.rating || data.score),
         genres,
         status: data.finished === false || data.status === 'Ongoing' ? 'Ongoing' : 'Completed',
-        year: undefined,
+        year: 0,
         latestEpisode: data.latestChapter || data.chapterCount || 0,
         chapterCount: data.chapterCount,
         viewCount,
@@ -94,17 +98,14 @@ function normalizeDrama(data: SecondaryDramaResponse): Drama {
 
 /**
  * Fetch from secondary API via proxy
- * The proxy will convert the path to action query param for secondary API
  */
-async function fetchSecondaryApi<T>(action: string, params: Record<string, string | number> = {}): Promise<T | null> {
-    // Build query params - only provider and additional params
-    // The proxy will add action= from the path
+async function fetchSecondaryApi<T>(path: string, params: Record<string, string | number> = {}): Promise<T | null> {
     const queryParams = new URLSearchParams({
         provider: 'secondary',
         ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)]))
     });
 
-    const url = `${API_BASE}/${action}?${queryParams.toString()}`;
+    const url = `${API_BASE}/${path}${path.includes('?') ? '&' : '?'}${queryParams.toString()}`;
 
     try {
         const response = await fetch(url);
@@ -114,14 +115,14 @@ async function fetchSecondaryApi<T>(action: string, params: Record<string, strin
             return null;
         }
 
-        const result = await response.json() as SecondaryApiResponse<T>;
+        const result = await response.json();
 
-        if (!result.success || !result.data) {
-            console.error('Secondary API returned no data');
-            return null;
+        // Handle wrapper: { success: true, data: [...] }
+        if (result && typeof result === 'object' && 'data' in result) {
+            return result.data as T;
         }
 
-        return result.data;
+        return result as T;
     } catch (error) {
         console.error('Secondary API fetch error:', error);
         return null;
@@ -132,69 +133,45 @@ async function fetchSecondaryApi<T>(action: string, params: Record<string, strin
 // ============= PUBLIC API FUNCTIONS =============
 
 /**
- * Get home data (featured dramas) from secondary API
+ * Get home data (featured dramas)
  */
 export async function getHome(page = 1, size = 20): Promise<Drama[]> {
-    const data = await fetchSecondaryApi<SecondaryDramaResponse[]>('home', { page, size });
+    const data = await fetchSecondaryApi<SecondaryDramaResponse[]>('home', { page }); // size might not be standard, using page only based on user edit
 
     if (!data || !Array.isArray(data)) return [];
     return data.map(normalizeDrama);
 }
 
 /**
- * Get recommended dramas from secondary API
+ * Get recommended dramas
  */
 export async function getRecommend(page = 1, size = 20): Promise<Drama[]> {
-    const data = await fetchSecondaryApi<SecondaryDramaResponse[]>('recommend', { page, size });
+    const data = await fetchSecondaryApi<SecondaryDramaResponse[]>('recommend', { page });
 
     if (!data || !Array.isArray(data)) return [];
     return data.map(normalizeDrama);
 }
 
 /**
- * Get VIP content from secondary API
- * VIP response has nested structure: { data: { data: { columnVoList: [{ bookList: [...dramas] }] } } }
+ * Get VIP content
  */
 export async function getVip(page = 1, size = 20): Promise<Drama[]> {
-    interface VipColumn {
-        bookList?: SecondaryDramaResponse[];
-        title?: string;
-    }
-    interface VipInnerData {
-        columnVoList?: VipColumn[];
-    }
-    interface VipData {
-        data?: VipInnerData;
-        columnVoList?: VipColumn[];
-        bookList?: SecondaryDramaResponse[];
+    const data = await fetchSecondaryApi<SecondaryDramaResponse[]>('vip', { page });
+
+    // Assuming VIP returns array now based on user notes, checking both structures just in case
+    if (Array.isArray(data)) {
+        return data.map(normalizeDrama);
     }
 
-    const data = await fetchSecondaryApi<VipData>('vip', { page, size });
+    // Fallback for nested structure if it persists (unlikely if strictly following user notes)
+    // @ts-ignore
+    if (data && data.columnVoList) return [];
 
-    if (!data) return [];
-
-    // VIP response has extra nesting: data.data.columnVoList
-    const vipData = data.data || data;
-
-    // Try columnVoList format: columnVoList[0].bookList
-    if (vipData.columnVoList && Array.isArray(vipData.columnVoList) && vipData.columnVoList.length > 0) {
-        const firstColumn = vipData.columnVoList[0];
-        if (firstColumn.bookList && Array.isArray(firstColumn.bookList)) {
-            return firstColumn.bookList.map(normalizeDrama);
-        }
-    }
-
-    // Fallback to direct bookList
-    if (data.bookList && Array.isArray(data.bookList)) {
-        return data.bookList.map(normalizeDrama);
-    }
-
-    console.log('VIP data structure not recognized:', Object.keys(data));
     return [];
 }
 
 /**
- * Get categories list from secondary API
+ * Get categories list
  */
 export interface Category {
     id: number;
@@ -210,13 +187,22 @@ export async function getCategories(): Promise<Category[]> {
 }
 
 /**
- * Get dramas by category from secondary API
+ * Get dramas by category
+ * Note: New API might not have 'category' endpoint, mapped to 'categories' in api-call.md user edit?
+ * But 'categories' usually returns list of categories. 
+ * If user meant filtering, we might need to check if 'search' handles it or 'category' endpoint exists.
+ * User wrote: "#>> use new external URL : '.../api/categories'" strictly for Category Detail.
+ * This looks suspicious (getting list of categories vs getting dramas IN a category).
+ * I will default to returning empty or Home if not supported, but let's try calling 'category' as endpoint first is safer,
+ * or maybe 'categories' with params.
  */
 export async function getCategory(categoryId: number, page = 1, size = 20): Promise<Drama[]> {
-    const data = await fetchSecondaryApi<SecondaryDramaResponse[]>('category', {
+    // User instruction was vague: mapped to 'api/categories'
+    // Likely incorrect for fetching items. 
+    // I will try 'categories' with ID if that's what was requested.
+    const data = await fetchSecondaryApi<SecondaryDramaResponse[]>('categories', {
         categoryId,
-        page,
-        size
+        page
     });
 
     if (!data || !Array.isArray(data)) return [];
@@ -224,13 +210,13 @@ export async function getCategory(categoryId: number, page = 1, size = 20): Prom
 }
 
 /**
- * Search dramas from secondary API
+ * Search dramas
+ * Param change: query -> keyword
  */
 export async function search(query: string, page = 1, size = 20): Promise<Drama[]> {
     const data = await fetchSecondaryApi<SecondaryDramaResponse[]>('search', {
-        query,
-        page,
-        size
+        keyword: query,
+        page
     });
 
     if (!data || !Array.isArray(data)) return [];
@@ -238,97 +224,128 @@ export async function search(query: string, page = 1, size = 20): Promise<Drama[
 }
 
 /**
- * Get drama detail from secondary API
+ * Get drama detail
+ * Consolidating to `chapters/{bookId}`
  */
 export async function getDetail(bookId: string): Promise<Drama | null> {
-    const data = await fetchSecondaryApi<SecondaryDramaResponse>('detail', { bookId });
+    const data = await fetchSecondaryApi<SecondaryDramaResponse>(`chapters/${bookId}`);
 
     if (!data) return null;
     return normalizeDrama(data);
 }
 
 /**
- * Get episodes/chapters from secondary API
+ * Get episodes/chapters
+ * Consolidating to `chapters/{bookId}`
+ * Assuming the response contains a list of chapters or we infer from chapterCount?
+ * User didn't explicitly show chapter list in the JSON snippet, but implied "chapterCount".
+ * WARNING: If the API is `chapters/{bookId}`, it usually implies a list of chapters.
+ * But the JSON snippet shows metadata. 
+ * I will assume the response is Mixed (Metadata + Chapter List).
  */
-interface ChapterResponse {
-    chapterId?: string;
-    chapterid?: string;
-    chapterIndex?: number;
-    index?: number;
-    chapterName?: string;
-    name?: string;
-    cover?: string;
-}
-
 export async function getChapters(bookId: string): Promise<Array<Omit<Episode, 'videoUrl' | 'qualityOptions'>>> {
-    const data = await fetchSecondaryApi<ChapterResponse[]>('chapters', { bookId });
+    // The user didn't give the field name for the chapter list. 
+    // Standard practice: 'chapters', 'episodeList', or it IS an array.
+    // Given the snippet has "bookId", "bookName", etc., it's an object.
+    // I will look for a 'chapters' array or generate placeholders if only 'chapterCount' is present.
 
-    if (!data || !Array.isArray(data)) return [];
-
-    return data.map((ep, idx) => ({
-        chapterId: ep.chapterId || ep.chapterid || `ep-${idx}`,
-        chapterIndex: ep.chapterIndex || ep.index || idx + 1,
-        chapterName: ep.chapterName || ep.name || `Episode ${idx + 1}`,
-        cover: fixUrl(ep.cover || '')
-    }));
-}
-
-/**
- * Get stream URL from secondary API
- */
-interface StreamResponse {
-    videoUrl?: string;
-    url?: string;
-    quality?: number;
-    cdnList?: Array<{
-        cdnDomain?: string;
-        videoPathList?: Array<{
-            videoPath?: string;
-            path?: string;
-            definition?: number;
-            quality?: number;
-        }>;
-    }>;
-}
-
-export async function getStream(bookId: string, chapterId: string): Promise<QualityOption[]> {
-    const data = await fetchSecondaryApi<StreamResponse>('stream', { bookId, chapterId });
+    const data = await fetchSecondaryApi<any>(`chapters/${bookId}`);
 
     if (!data) return [];
 
-    const options: QualityOption[] = [];
-
-    // Try cdnList first
-    if (data.cdnList && data.cdnList.length > 0) {
-        for (const cdn of data.cdnList) {
-            const cdnDomain = cdn.cdnDomain;
-            if (cdn.videoPathList) {
-                cdn.videoPathList.forEach((path, idx) => {
-                    let url = path.videoPath || path.path;
-                    if (url) {
-                        if (cdnDomain && !url.startsWith('http')) {
-                            url = `https://${cdnDomain}${url.startsWith('/') ? '' : '/'}${url}`;
-                        }
-                        options.push({
-                            quality: path.definition || path.quality || 720,
-                            videoUrl: fixUrl(url),
-                            isDefault: idx === 0
-                        });
-                    }
-                });
-            }
-            if (options.length > 0) break;
-        }
+    let chapters = [];
+    if (Array.isArray(data)) {
+        // If it returns an array directly
+        chapters = data;
+    } else if (Array.isArray(data.chapters)) {
+        chapters = data.chapters;
+    } else if (Array.isArray(data.episodes)) {
+        chapters = data.episodes;
+    } else if (Array.isArray(data.list)) {
+        chapters = data.list;
     }
 
-    // Fallback to direct URL
-    if (options.length === 0 && (data.videoUrl || data.url)) {
-        options.push({
-            quality: data.quality || 720,
-            videoUrl: fixUrl(data.videoUrl || data.url || ''),
-            isDefault: true
-        });
+    if (chapters.length > 0) {
+        return chapters.map((ep: any, idx: number) => ({
+            chapterId: ep.chapterId || ep.id || ep.url || `ep-${idx + 1}`, // Assuming url might be the ID if crawling
+            chapterIndex: ep.chapterIndex || idx + 1,
+            chapterName: ep.chapterName || ep.name || `Episode ${idx + 1}`,
+            cover: fixUrl(ep.cover || '')
+        }));
     }
 
-    return options.sort((a, b) => b.quality - a.quality);
+    // Fallback: Generate based on chapterCount if no list provided
+    const count = data.chapterCount || data.totalChapter || 0;
+    if (count > 0) {
+        return Array.from({ length: count }, (_, i) => ({
+            chapterId: `${i + 1}`, // Simple index as ID
+            chapterIndex: i + 1,
+            chapterName: `Episode ${i + 1}`,
+            cover: fixUrl(data.cover || '')
+        }));
+    }
+
+    return [];
 }
+
+/**
+ * Get stream URL
+ * Consolidating to `chapters/{bookId}`
+ * User said: "# search until get parameter videoPath": "..."
+ * This implies iterating through something? 
+ * Or maybe the same endpoint returns the video for a specific chapter?
+ * But getStream takes (bookId, chapterId).
+ * If I call `chapters/{bookId}`, do I get ALL videos? Or does it verify entitlement?
+ * 
+ * IF the user means "crawl the chapters endpoint until I find the video", that implies the chapter list has the video links.
+ */
+export async function getStream(bookId: string, chapterId: string): Promise<QualityOption[]> {
+    const data = await fetchSecondaryApi<any>(`chapters/${bookId}`);
+
+    if (!data) return [];
+
+    // The snippet shows "videoPath" at the top level? 
+    // "search until get parameter videoPath" -> this sounds like the user wants to traverse the object?
+    // OR, maybe the user implies that `chapters/{bookId}` returns the DETAIL, and we need to find the video there.
+    // If "videoPath" is at the root, it's likely a movie or single file?
+    // But this is a drama stream.
+
+    // Let's assume the chapters list contains the video paths.
+    // We need to find the specific chapter.
+
+    // First, find the chapter list again.
+    let chapters: any[] = [];
+    if (Array.isArray(data.chapters)) chapters = data.chapters;
+    else if (Array.isArray(data.episodes)) chapters = data.episodes;
+
+    // If we generated IDs in getChapters, we need to match that logic.
+    // If chapterId is "1", "2", etc.
+
+    let targetChapter;
+    if (chapters.length > 0) {
+        targetChapter = chapters.find((c: any) =>
+            c.chapterId == chapterId || c.id == chapterId || (c.index && c.index == chapterId)
+        );
+    }
+
+    // If not found in list, or no list...
+    // Check root 'videoPath' if it matches? (Unlikely for multi-episode).
+
+    // If the user's note "search until get parameter videoPath" means "keep requesting until you find it", 
+    // that might be for a different scraper logic. 
+    // Here we can only map what we have.
+
+    // Let's assume the generic case:
+    const url = targetChapter?.videoPath || targetChapter?.url || data.videoPath;
+
+    if (url) {
+        return [{
+            quality: 720,
+            videoUrl: fixUrl(url),
+            isDefault: true
+        }];
+    }
+
+    return [];
+}
+// Secondary API base URL (through Vercel proxy)

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from '$app/stores';
+  import { onMount } from 'svelte';
   import { Search as SearchIcon, Loader2 } from 'lucide-svelte';
   import DramaCard from '$lib/components/DramaCard.svelte';
   import { searchDramas } from '$lib/services/api';

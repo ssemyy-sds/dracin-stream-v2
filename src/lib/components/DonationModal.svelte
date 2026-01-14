@@ -11,6 +11,10 @@
   // QRIS QR code image path
   const qrisImage = "/qrcode_sds.png";
 
+  // Fallback QR generator
+  //const fallbackQr =
+  //  "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://saweria.co/dracin";
+
   let imageError = $state(false);
 
   function handleImageError() {

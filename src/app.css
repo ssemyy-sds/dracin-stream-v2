@@ -3,101 +3,80 @@
 @tailwind utilities;
 
 @layer base {
-    :root {
-        --brand-orange: 255 102 0;
-        --brand-black: 0 0 0;
-        --brand-dark: 18 18 18;
-        --brand-gray: 30 30 30;
-    }
+  html {
+    scroll-behavior: smooth;
+  }
 
-    body {
-        @apply bg-brand-black text-white font-sans antialiased;
-        -webkit-tap-highlight-color: transparent;
-    }
+  body {
+    @apply bg-brand-black text-white min-h-screen;
+  }
 
-    /* Custom Scrollbar */
-    ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-        @apply bg-brand-black;
-    }
-    ::-webkit-scrollbar-thumb {
-        @apply bg-brand-gray rounded-full hover:bg-brand-orange/50 transition-colors;
-    }
+  /* Custom scrollbar for dark theme */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-brand-dark;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-brand-gray rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-600;
+  }
 }
 
 @layer components {
-    .glass {
-        @apply bg-white/10 backdrop-blur-md border border-white/10;
-    }
 
-    .glass-dark {
-        @apply bg-black/60 backdrop-blur-md border border-white/5;
-    }
+  /* Glass effect for cards and modals */
+  .glass {
+    @apply backdrop-blur-md bg-white/5 border border-white/10;
+  }
 
-    .gradient-overlay-bottom {
-        background: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%);
-    }
+  /* Gradient overlays */
+  .gradient-overlay {
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.5) 50%, transparent 100%);
+  }
 
-    .gradient-overlay-left {
-        background: linear-gradient(to right, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%);
-    }
+  .gradient-overlay-left {
+    background: linear-gradient(to right, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.7) 40%, transparent 100%);
+  }
 
-    .shimmer {
-        background: linear-gradient(90deg, #121212 25%, #1e1e1e 50%, #121212 75%);
-        background-size: 200% 100%;
-        animation: shimmer-anim 1.5s infinite;
-    }
-
-    @keyframes shimmer-anim {
-        0% { background-position: 200% 0; }
-        100% { background-position: -200% 0; }
-    }
+  /* Shimmer loading effect */
+  .shimmer {
+    @apply animate-pulse bg-gradient-to-r from-brand-dark via-brand-gray to-brand-dark;
+    background-size: 200% 100%;
+  }
 }
 
-/* Base styles for buttons and interactive elements */
-button, a {
-    @apply cursor-pointer transition-all duration-200;
-}
+@layer utilities {
 
-button:active {
-    @apply scale-95 opacity-80;
-}
+  /* Hide scrollbar but keep scroll functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 
-/* Input styles */
-input {
-    @apply bg-brand-gray border-white/10 text-white placeholder-gray-500 focus:ring-brand-orange focus:border-brand-orange;
-}
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 
-/* Aspect ratio helpers */
-.aspect-poster {
-    aspect-ratio: 2 / 3;
-}
-
-.aspect-video {
-    aspect-ratio: 16 / 9;
-}
-
-/* Multi-line clamp */
-.line-clamp-1 {
-    display: -webkit-box;
-    -webkit-line-clamp: 1;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-.line-clamp-2 {
+  /* Line clamp utilities */
+  .line-clamp-2 {
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
-}
+  }
 
-.line-clamp-3 {
+  .line-clamp-3 {
     display: -webkit-box;
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
+  }
 }

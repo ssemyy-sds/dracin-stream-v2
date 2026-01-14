@@ -24,10 +24,10 @@ export default async function handler(req, res) {
     let targetUrl;
 
     if (provider === 'secondary') {
-        // Secondary API uses ?action= query parameter format
-        // Example: https://api.gimita.id/api/search/dramabox?action=home&page=1&size=10
-        queryParams.set('action', apiPath || '');
-        targetUrl = `https://api.gimita.id/api/search/dramabox?${queryParams.toString()}`;
+        const secondaryBase = 'https://kdjekek-usieke-owjejxkek-iwjwjxkod.vercel.app/api';
+        // Allow path to be passed directly for the new API
+        // apiPath comes from req.query.path
+        targetUrl = `${secondaryBase}/${apiPath}${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
     } else {
         // Primary API uses path-based routing
         // Example: https://api.sansekai.my.id/api/dramabox/trending
@@ -53,3 +53,4 @@ export default async function handler(req, res) {
         res.status(500).json({ error: error.message });
     }
 }
+

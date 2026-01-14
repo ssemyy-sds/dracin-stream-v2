@@ -20,10 +20,22 @@ export const GET: RequestHandler = async ({ url, params }) => {
     let targetUrl: string;
 
     if (provider === 'secondary') {
-        // Secondary API uses ?action= query parameter format
-        // Example: https://api.gimita.id/api/search/dramabox?action=home&page=1&size=10
-        queryParams.set('action', path || '');
-        targetUrl = `${API_URLS.secondary}?${queryParams.toString()}`;
+        const secondaryBase = 'https://kdjekek-usieke-owjejxkek-iwjwjxkod.vercel.app/api';
+        // Handle specific route mappings if necessary or pass through
+        // api-call.md: Home -> /api/home, Search -> /api/search, etc.
+        // The internal path comes in as 'home', 'search', etc.
+
+        // Special case handling based on api-call.md instructions
+        if (path === 'chapters' || path === 'detail' || path === 'stream') {
+            // For these, we expect a bookId. 
+            // api-secondary.ts needs to be updated to pass the ID in the path or query 
+            // But valid REST design would be /api/chapters/{bookId}
+            // For now, let's assume api-secondary.ts will call /api/chapters/123?provider=secondary
+            // So if path contains slashes, we just append it.
+            targetUrl = `${secondaryBase}/${path}${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+        } else {
+            targetUrl = `${secondaryBase}/${path}${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+        }
     } else {
         // Primary API uses path-based routing
         // Example: https://api.sansekai.my.id/api/dramabox/trending
