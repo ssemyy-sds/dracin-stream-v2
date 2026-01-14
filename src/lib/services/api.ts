@@ -84,11 +84,15 @@ function normalizeEpisode(data: any, index: number): Omit<Episode, 'videoUrl' | 
  * Fetch with error handling
  */
 async function fetchApi<T>(endpoint: string, params: Record<string, string | number> = {}): Promise<T> {
-    const queryParams = new URLSearchParams(
-        Object.entries(params).map(([k, v]) => [k, String(v)])
-    );
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null) {
+            queryParams.set(k, String(v));
+        }
+    });
 
-    const url = `${API_BASE}/${endpoint}${endpoint.includes('?') ? '&' : '?'}${queryParams.toString()}`;
+    const hasQuery = endpoint.includes('?');
+    const url = `${API_BASE}/${endpoint}${hasQuery ? '&' : '?'}${queryParams.toString()}`;
 
     const response = await fetch(url);
 
@@ -97,16 +101,6 @@ async function fetchApi<T>(endpoint: string, params: Record<string, string | num
     }
 
     const result = await response.json();
-
-    // The secondary API responses often have a { data: ... } wrapper
-    // But sometimes we need the whole object (like for download/${bookId})
-    // For list endpoints (home, recommend), it usually returns { data: [ ... ] } or just [ ... ]
-    // We'll let the caller handle specific structures if needed, but here's a generic unwrap if it's a simple data wrapper
-    if (result && typeof result === 'object' && 'data' in result && !result.info) {
-        // Special case: if it has 'info' it's likely the download endpoint which we need both info and data from
-        return result.data as T;
-    }
-
     return result as T;
 }
 
@@ -117,7 +111,8 @@ async function fetchApi<T>(endpoint: string, params: Record<string, string | num
  */
 export async function getHome(page = 1): Promise<Drama[]> {
     try {
-        const data = await fetchApi<any[]>('home', { page });
+        const res = await fetchApi<any>('home', { page });
+        const data = Array.isArray(res) ? res : (res?.data || []);
         if (!Array.isArray(data)) return [];
         return data.map(normalizeDrama);
     } catch (e) {
@@ -131,7 +126,8 @@ export async function getHome(page = 1): Promise<Drama[]> {
  */
 export async function getRecommend(page = 1): Promise<Drama[]> {
     try {
-        const data = await fetchApi<any[]>('recommend', { page });
+        const res = await fetchApi<any>('recommend', { page });
+        const data = Array.isArray(res) ? res : (res?.data || []);
         if (!Array.isArray(data)) return [];
         return data.map(normalizeDrama);
     } catch (e) {
@@ -273,7 +269,8 @@ export async function getForYou(): Promise<Drama[]> {
  */
 export async function getVip(page = 1): Promise<Drama[]> {
     try {
-        const data = await fetchApi<any[]>('vip', { page });
+        const res = await fetchApi<any>('vip', { page });
+        const data = Array.isArray(res) ? res : (res?.data || []);
         if (Array.isArray(data)) {
             return data.map(normalizeDrama);
         }
@@ -296,12 +293,9 @@ export async function getDubIndo(classify = 'all', page = 1): Promise<Drama[]> {
  */
 export async function searchDramas(query: string): Promise<Drama[]> {
     try {
-        const data = await fetchApi<any[]>('search', { keyword: query });
+        const res = await fetchApi<any>('search', { keyword: query });
+        const data = Array.isArray(res) ? res : (res?.data || res?.list || []);
         if (Array.isArray(data)) return data.map(normalizeDrama);
-        // If data is wrapped
-        if (data && (data as any).list && Array.isArray((data as any).list)) {
-            return (data as any).list.map(normalizeDrama);
-        }
         return [];
     } catch (e) {
         console.error('searchDramas error:', e);
@@ -357,7 +351,8 @@ export async function getDramasByCategory(type: CategoryType | string, page = 1)
 
 export async function getCategory(categoryId: number, page = 1): Promise<Drama[]> {
     try {
-        const data = await fetchApi<any[]>('categories', { categoryId, page });
+        const res = await fetchApi<any>('categories', { categoryId, page });
+        const data = Array.isArray(res) ? res : (res?.data || []);
         if (!Array.isArray(data)) return [];
         return data.map(normalizeDrama);
     } catch (e) {

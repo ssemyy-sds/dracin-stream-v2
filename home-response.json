@@ -1,0 +1,98 @@
+{
+  "success": true,
+  "_notes": "Hosted by @paxsenix",
+  "data": [
+    {
+      "id": "42000002890",
+      "name": "Kembalinya Sang Petinju (Sulih Suara)",
+      "cover": "https://hwztchapter.dramaboxdb.com/data/cppartner/4x2/42x0/420x0/42000002890/42000002890.jpg?t=1766975931542",
+      "chapterCount": 72,
+      "introduction": "Mantan juara tinju yang baru keluar dari penjara hidup menyembunyikan identitasnya di sebuah klub tinju. Namun saat organisasi yang dulu merenggut nyawa ayahnya datang menantang, dia tak punya pilihan selain melawan. Dengan tinju baja, dia membongkar dalang di baliknya dan memastikan mereka mendapat hukuman setimpal!",
+      "tags": [
+        {
+          "tagId": 1337,
+          "tagName": "Balas Dendam",
+          "tagEnName": "Revenge"
+        },
+        {
+          "tagId": 1338,
+          "tagName": "Pembalikan Identitas",
+          "tagEnName": "Hidden Identity"
+        },
+        {
+          "tagId": 10037,
+          "tagName": "Keadilan",
+          "tagEnName": "Justice Served"
+        },
+        {
+          "tagId": 1463,
+          "tagName": "Atlet",
+          "tagEnName": "Athlete"
+        },
+        {
+          "tagId": 1318,
+          "tagName": "Modern",
+          "tagEnName": "Modern"
+        },
+        {
+          "tagId": 1323,
+          "tagName": "Pria Dominan",
+          "tagEnName": "Powerful Male Lead"
+        }
+      ],
+      "playCount": "2.8M",
+      "cornerName": "Terpopuler",
+      "cornerColor": "#FF2965"
+    },
+    {
+      "id": "41000112448",
+      "name": "Kaisar Pulang ke Desa (Sulih Suara)",
+      "cover": "https://hwztchapter.dramaboxdb.com/data/cppartner/4x1/41x0/410x0/41000112448/41000112448.jpg?t=1765787447496",
+      "chapterCount": 63,
+      "introduction": "Sebelum meninggalkan kampung halamannya, Alingga berjanji pada tunangannya, Rinjani, bahwa ketika dia menjadi kaisar, dia akan kembali dan menjadikan Rinjani sebagai permaisuri. Bertahun-tahun kemudian, dia naik takhta sebagai kaisar. Untuk menepati janjinya, dia memutuskan untuk menyamar dan kembali ke kampung halamannya. Namun, saat memasuki gerbang kota, dia mendapati tunangannya, Rinjani, telah berubah hati dan akan menikah dengan putra Bupati...",
+      "tags": [
+        {
+          "tagId": 1337,
+          "tagName": "Balas Dendam",
+          "tagEnName": "Revenge"
+        },
+        {
+          "tagId": 1338,
+          "tagName": "Pembalikan Identitas",
+          "tagEnName": "Hidden Identity"
+        },
+        {
+          "tagId": 1341,
+          "tagName": "Perselingkuhan",
+          "tagEnName": "Betrayal"
+        },
+        {
+          "tagId": 1327,
+          "tagName": "Bangsawan",
+          "tagEnName": "Royalty"
+        },
+        {
+          "tagId": 1319,
+          "tagName": "Sejarah",
+          "tagEnName": "Historical"
+        },
+        {
+          "tagId": 1323,
+          "tagName": "Pria Dominan",
+          "tagEnName": "Powerful Male Lead"
+        }
+      ],
+      "playCount": "53.5M",
+      "cornerName": "Sulih Suara",
+      "cornerColor": "#4D65ED"
+    }
+  ],
+  "info": {
+    "timestamp": "2026-01-14T03:47:15.427Z",
+    "pagination": {
+      "page": 1,
+      "size": 2,
+      "hasMore": true
+    }
+  }
+}

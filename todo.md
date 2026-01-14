@@ -17,17 +17,32 @@ The primary API (`api.sansekai.my.id`) is down. We need to completely remove it 
 ## 2. Refactor `src/lib/services/api.ts`
 
 ### 2.1 Update `normalizeDrama`
-- Update the normalization logic to match the response from the secondary API:
-    - `bookId` can be `bookId`, `bookid`, or `id`.
-    - `bookName` can be `bookName`, `bookname`, or `name`.
-    - `cover` should use `fixUrl(data.coverWap || data.cover || '')`.
-    - `genres` should handle `tags` (string array) or `tagNameList`.
-    - `viewCount` should handle the string format (e.g., "1.2M") using the parsing logic from `api-secondary.ts`.
+- Update the normalization logic based on `home-response.json` (Secondary API):
+    - `bookId`: `data.id` (Secondary) or `data.bookId`
+    - `bookName`: `data.name` (Secondary) or `data.bookName`
+    - `cover`: `fixUrl(data.cover || data.coverWap || '')`
+    - `introduction`: `data.introduction` or `data.description`
+    - `genres`: Handle `data.tags` which is an array of objects `{ tagName: "..." }`, map to a string array.
+    - `viewCount`: `data.playCount` (e.g., "2.8M"). Use parsing: `2.8 * 1000000`.
+    - `cornerLabel`: `data.cornerName`.
 
 ### 2.2 Rewrite Public API Functions
-- **`getDramaDetail(bookId)`**: Call `chapters/${bookId}` and return normalized data.
-- **`getAllEpisodes(bookId)`**: Call `chapters/${bookId}` and extract the chapter list.
-- **`getStreamUrl(bookId, episodeNum)`**: Call `chapters/${bookId}`, find the episode by index, and extract `videoPath`.
+- **`getDramaDetail(bookId)`**: 
+    - The `download/${bookId}` endpoint (from `download-all-response.json`) returns an episode list in `data` and book info in `info`.
+    - *Metadata Mapping*: Since `download/${bookId}` might only have the `bookId` in `info`, the metadata should be retrieved from a `home` or `search` result if possible, or mapped from `info` if available.
+    - *Mapping*: `id` -> `bookId`, `name` -> `bookName`, `cover` -> `cover`, `introduction` -> `introduction`.
+
+- **`getAllEpisodes(bookId)`**: 
+    - Call `download/${bookId}`.
+    - According to `download-all-response.json`, episodes are in the `data` array.
+    - Each episode has `chapterId`, `chapterIndex`, `chapterName`, and `videoPath`.
+    - Map `chapterName` (e.g., "EP 1") and `chapterIndex`.
+
+- **`getStreamUrl(bookId, episodeNum)`**: 
+    - Call `download/${bookId}` (or use cached data from the same call).
+    - Find the episode in the `data` array where `chapterIndex === episodeNum - 1` (or match by index).
+    - Use `videoPath` as the `videoUrl`.
+
 - **`getTrending`, `getPopular`, `getLatest`, `getForYou`**: Map these to calling either `home` or `recommend` endpoints from the secondary API.
 - **`getVip(page)`**: Call the `vip` endpoint from the secondary API.
 - **`searchDramas(query)`**: Call the `search` endpoint with `keyword` parameter instead of `query`.
